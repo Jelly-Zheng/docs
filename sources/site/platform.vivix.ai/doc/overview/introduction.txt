@@ -1,0 +1,88 @@
+# Source: https://platform.vivix.ai/doc/overview/introduction
+
+Copy page
+
+## Build content that's alive
+
+Today's content is offline and passive — you watch, you scroll, and that's it. Vivix is building the next generation of content infrastructure to turn it into something fundamentally different: interactive, real-time generated experiences. Avatars that perform, listen, and improvise. Worlds and stories that react to what users say, type, or do.
+
+The Vivix API gives developers a single platform to generate, orchestrate, and stream this new kind of content — turning viewers into participants, and participants into creators.
+
+## Use cases
+
+Four examples of what developers can build with Vivix.
+
+![Customer Support](https://static.vivi-x.ai/images/2026/06/25/c90cf1b4832cb2d0.png)
+
+Customer Support
+
+Engage users in natural, personalized conversations using your knowledge base.
+
+![Full-Body Live Performance](https://static.vivi-x.ai/images/2026/07/08/1c5ae7ed82cf69de.png)
+
+Full-Body Live Performance
+
+Create full-body performers that move, interact with their surroundings, and respond live.
+
+![Interactive Learning](https://static.vivi-x.ai/images/2026/07/08/7bccb73dcf0a4a58.webp)
+
+Interactive Learning
+
+Turn stories and lessons into interactive experiences that respond as the learner participates.
+
+![Interactive Worlds · Preview](https://static.vivi-x.ai/images/2026/07/08/4350423aed47b45b.jpg)
+
+Interactive Worlds · Preview
+
+Create worlds and stories that react to what users say, type, or do.
+
+For a full walkthrough of how these scenarios are built, including the core integration code, see the sample cases: [Customer Support](https://platform.vivix.ai/doc/overview/sample-cases/customer-support) and [Live Performance](https://platform.vivix.ai/doc/overview/sample-cases/live-performance).
+
+## Choose your API
+
+The Vivix API has two product lines. Which one you need comes down to **real-time interaction** versus **asynchronous video generation**:
+
+| Product line | When you need | Integration path | Models |
+| --- | --- | --- | --- |
+| [Streaming Avatar](https://platform.vivix.ai/doc/streaming-avatar/configuration) | Real-time interaction: an avatar that talks with users live, performs actions, sings and dances — with support for interrupting, swapping the avatar, or swapping the image at any time. | Create a session over REST → join the real-time media stream (TRTC) → drive the session over the WSS control channel. | `vivix-a1-stream` (variant `vivix-a1-stream-lite`) |
+| [Blazing Fast Video Generation](https://platform.vivix.ai/doc/video-generation/avatar-video-generation) | Asynchronous generation: produce a finished video from [text, audio, and images](https://platform.vivix.ai/doc/video-generation/avatar-video-generation). | Submit a generation task over REST → poll the task status → fetch the playback URL of the finished video. | A1 line: `vivix-a1-lite` / `vivix-a1`; W1 line: `vivix-w1` |
+
+A simple test: **does your user need to influence the picture while watching it**? If yes — the user says something and the avatar responds in real time — choose Streaming Avatar: it delivers a continuous real-time audio and video stream plus a WSS control channel. If not — you just need a video file to play or distribute — choose Blazing Fast Video Generation: it delivers an asynchronous task and a playback URL for the finished video. Both product lines share the same Base URL, the same API key authentication, and the unified `{code, message, data}` response envelope.
+
+See [Models](https://platform.vivix.ai/doc/overview/models) for each model's capability boundaries and selection guidance, including [`GET /v1/models`](https://platform.vivix.ai/doc/overview/models#list-models) to list the models enabled for your API key. A third product line, **Streaming World** (a real-time world model, `vivix-w1-stream`), is in private beta and not yet publicly available — see [Streaming World](https://platform.vivix.ai/doc/streaming-world/configuration).
+
+## Quickstart
+
+Create your account and API key to get started. For Streaming Avatar, try a template next.
+
+1
+
+### Create your Vivix account
+
+Register for the Vivix developer platform and sign in to your account.
+
+2
+
+### Generate an API key
+
+Open **API Keys** in the developer platform, create a key, and store it somewhere secure.
+
+3
+
+### Start with a template
+
+Building with Streaming Avatar? Choose a template and run your first avatar app locally with the Vivix Studio CLI.
+
+[Explore templates →](https://platform.vivix.ai/doc/streaming-avatar/templates)
+
+Send REST requests to `https://api.vivix.ai` with your API key in the request header:
+
+```
+Authorization: Bearer <API_KEY>
+```
+
+**Keep your API key on your server.** Any call that sends `Authorization: Bearer <VIVIX_API_KEY>` — creating or closing a session, submitting a generation — must run on your own backend; never ship your Vivix API key to a browser or mobile app. A browser only needs the values returned by session creation: `control.url` and `control.client_secret` for the control channel, plus the TRTC media credentials. `control.client_secret` is a short-lived, single-session credential: it authenticates one session's control channel, stays valid only until that session ends (up to `max_duration_seconds`, 20 minutes by default), and cannot be refreshed — create a new session for a new one. It is not single-use: you can reconnect the control channel with it during the same session, and it stops working the moment the session closes or expires (there is no separate way to revoke it). It is safe to use from the browser; your API key is not. A browser appends it to the returned control URL as the token query parameter; a server-side client may instead send Authorization: Bearer <control.client\_secret>. The query parameter name must be token, not client\_secret. Do not log the credential or the complete `control.url` out of logs and analytics as well.
+
+Once you are ready, continue with the product line that matches what you are building:
+
+[Continue with Streaming AvatarFor conversation-first, real-time avatar products.](https://platform.vivix.ai/doc/streaming-avatar/configuration) [Continue with Blazing Fast Video GenerationFor asynchronous video generation.](https://platform.vivix.ai/doc/video-generation/avatar-video-generation)

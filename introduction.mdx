@@ -1,0 +1,72 @@
+---
+title: "Vivix: Real-Time Interactive Avatar Infrastructure"
+sidebarTitle: "Introduction"
+description: "Learn how Vivix transforms passive content into interactive avatar experiences — from live streaming conversations to AI-generated video."
+---
+
+Today's content is offline and passive — you watch, you scroll, and that's it. Vivix is building the next generation of content infrastructure to change that: interactive, real-time generated experiences where avatars perform, listen, and improvise, and where worlds and stories react to what users say, type, or do. The Vivix API gives you a single platform to generate, orchestrate, and stream this new kind of content, turning viewers into participants and participants into creators.
+
+## What You Can Build
+
+Vivix is designed for developers tackling a wide range of interactive content challenges. Here are four representative use cases.
+
+<CardGroup cols={2}>
+  <Card title="Customer Support" icon="headset">
+    Engage users in natural, personalized conversations driven by your knowledge base. Deploy an avatar that listens, responds, and guides users through complex topics in real time.
+  </Card>
+  <Card title="Full-Body Live Performance" icon="person-walking">
+    Create full-body performers that move, interact with their surroundings, and respond live to what their audience says or does — concerts, shows, interactive demos.
+  </Card>
+  <Card title="Interactive Learning" icon="graduation-cap">
+    Turn stories and lessons into interactive experiences that adapt as the learner participates. The avatar paces itself, answers questions, and responds to where the student is.
+  </Card>
+  <Card title="Interactive Worlds" icon="globe">
+    Build worlds and narratives that evolve based on user input — environments where characters, scenes, and storylines shift in real time according to what users say, type, or do.
+  </Card>
+</CardGroup>
+
+## Choose Your API
+
+The Vivix API has two product lines. Which one you need comes down to **real-time interaction** versus **asynchronous video generation**. A simple test: does your user need to influence what they see while they are watching it? If yes, choose Streaming Avatar. If you just need a finished video file to play or distribute, choose Blazing Fast Video Generation.
+
+| Product line | When you need | Integration path | Models |
+|---|---|---|---|
+| **Streaming Avatar** | Real-time interaction: an avatar that talks with users live, performs actions, sings and dances — with support for interrupting, swapping the avatar, or swapping the image at any time. | Create a session over REST → join the real-time media stream (TRTC) → drive the session over the WSS control channel. | `vivix-a1-stream` (variant: `vivix-a1-stream-lite`) |
+| **Blazing Fast Video Generation** | Asynchronous generation: produce a finished video from text, audio, and images. | Submit a generation task over REST → poll the task status → fetch the playback URL of the finished video. | A1 line: `vivix-a1-lite` / `vivix-a1`; W1 line: `vivix-w1` |
+
+Both product lines share the same base URL (`https://api.vivix.ai`), the same API key authentication, and the same unified response envelope.
+
+## How the API Works
+
+Every Vivix API request uses the same foundation regardless of which product line you are building on.
+
+**Base URL** — All requests go to `https://api.vivix.ai`. There is no separate endpoint per product line.
+
+**Authentication** — Include your API key in the `Authorization` header of every server-side request:
+
+```http
+Authorization: Bearer <API_KEY>
+```
+
+Your API key must stay on your server. The only credentials safe to forward to a browser are the short-lived `control.client_secret` and the TRTC media credentials returned when you create a Streaming Avatar session.
+
+**Response envelope** — Every endpoint returns the same JSON wrapper:
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": { ... }
+}
+```
+
+A `code` of `0` means success. Non-zero codes indicate an error and the `message` field describes what went wrong.
+
+<CardGroup cols={2}>
+  <Card title="Streaming Avatar" icon="broadcast-tower" href="streaming-avatar/overview">
+    Deep dive into real-time sessions, the TRTC media stream, and the WebSocket control channel.
+  </Card>
+  <Card title="Video Generation" icon="film" href="video-generation/overview">
+    Learn how to submit generation tasks, poll for status, and retrieve finished video playback URLs.
+  </Card>
+</CardGroup>

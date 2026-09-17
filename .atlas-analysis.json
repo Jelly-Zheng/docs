@@ -1,0 +1,111 @@
+{
+  "projectType": "api-service",
+  "projectName": "Vivix API Platform",
+  "projectDescription": "Vivix is a real-time content infrastructure platform that lets developers build interactive avatar experiences — from live streaming avatars to asynchronous AI video generation.",
+  "theme": "luma",
+  "primaryColor": "#848484",
+  "lightColor": "#111111",
+  "darkColor": "#dedede",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication",
+              "models"
+            ]
+          },
+          {
+            "group": "Streaming Avatar",
+            "pages": [
+              "streaming-avatar/overview",
+              "streaming-avatar/configuration",
+              "streaming-avatar/control-channel",
+              "streaming-avatar/templates"
+            ]
+          },
+          {
+            "group": "Video Generation",
+            "pages": [
+              "video-generation/overview",
+              "video-generation/avatar-video",
+              "video-generation/task-management"
+            ]
+          },
+          {
+            "group": "Sample Cases",
+            "pages": [
+              "sample-cases/customer-support",
+              "sample-cases/live-performance",
+              "sample-cases/interactive-learning",
+              "sample-cases/interactive-worlds"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/api-keys",
+              "resources/errors",
+              "resources/faq"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/introduction"
+            ]
+          },
+          {
+            "group": "Streaming Avatar",
+            "pages": [
+              "api-reference/streaming-avatar/create-session",
+              "api-reference/streaming-avatar/close-session",
+              "api-reference/streaming-avatar/control-channel"
+            ]
+          },
+          {
+            "group": "Video Generation",
+            "pages": [
+              "api-reference/video-generation/submit-task",
+              "api-reference/video-generation/get-task"
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api-reference/models/list-models"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Real-time Streaming Avatar with live interaction and control channel (WSS)",
+    "Blazing Fast Video Generation for asynchronous AI avatar video",
+    "TRTC-based media streaming for low-latency avatar sessions",
+    "Single unified API with shared authentication and response envelope",
+    "Multiple avatar models: vivix-a1-stream, vivix-a1, vivix-a1-lite, vivix-w1",
+    "Client SDK templates for rapid Streaming Avatar integration",
+    "Customer Support, Live Performance, Interactive Learning, and Interactive Worlds use cases"
+  ],
+  "publicApiSurface": [
+    "POST /v1/streaming-avatar/sessions — create a streaming avatar session",
+    "DELETE /v1/streaming-avatar/sessions/:id — close a streaming avatar session",
+    "WSS control channel — drive avatar actions in real time",
+    "POST /v1/video-generation/tasks — submit an asynchronous video generation task",
+    "GET /v1/video-generation/tasks/:id — poll task status and retrieve playback URL",
+    "GET /v1/models — list models enabled for your API key",
+    "Authorization: Bearer <API_KEY> header authentication"
+  ]
+}

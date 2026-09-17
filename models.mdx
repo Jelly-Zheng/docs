@@ -1,0 +1,65 @@
+---
+title: "Vivix Models: Streaming Avatar and Video Generation"
+sidebarTitle: "Models"
+description: "Explore the Vivix model lineup — vivix-a1-stream for real-time avatars and vivix-a1/vivix-w1 for video generation — and choose the right one."
+---
+
+Vivix organizes its models into two product lines — Streaming Avatar for real-time interactive sessions and Blazing Fast Video Generation for asynchronous video production. Within each line, models trade off speed, quality, and capability so you can match the right model to your use case and budget. Use `GET /v1/models` to confirm which models are enabled for your API key.
+
+## Streaming Avatar Models
+
+Streaming Avatar models power live, real-time avatar sessions. The avatar receives instructions over a WebSocket control channel and streams audio and video back to the viewer in real time via TRTC. All streaming avatar models support live conversation, actions, interruption handling, and dynamic avatar or image swapping during a session.
+
+| Model | Description |
+|---|---|
+| `vivix-a1-stream` | Full-featured streaming avatar model. Supports live interaction, action commands, song and dance performances, mid-session interruption, and real-time avatar and image swapping. Best for production-quality interactive experiences. |
+| `vivix-a1-stream-lite` | Lighter variant of `vivix-a1-stream`. Reduced resource footprint with the same control-channel interface. Use when lower latency or lower cost matters more than maximum expressiveness. |
+
+## Video Generation Models
+
+Video generation models run asynchronously. You submit a task over REST, poll for completion, and retrieve a playback URL when the video is ready. Choose a model based on the quality level and style you need.
+
+| Model | Line | Description |
+|---|---|---|
+| `vivix-a1-lite` | A1 | Fast, lightweight avatar video generation. Best for high-volume pipelines where turnaround speed matters most. |
+| `vivix-a1` | A1 | High-quality avatar video generation. Produces more detailed, expressive results than `vivix-a1-lite` at the cost of slightly longer generation time. |
+| `vivix-w1` | W1 | World-style video generation. Generates richly composed scenes beyond a single avatar. Best for immersive or cinematic content. |
+
+## Private Beta
+
+<Note>
+  **Streaming World (`vivix-w1-stream`)** — a real-time world model that brings `vivix-w1`-style scenes into a live session — is currently in **private beta** and is not publicly available. Contact the Vivix team if you are interested in early access.
+</Note>
+
+## List Models via API
+
+Send a `GET /v1/models` request to retrieve the exact set of models enabled for your API key. This is useful for confirming access before building, and for dynamically selecting a model at runtime.
+
+```bash
+curl https://api.vivix.ai/v1/models \
+  -H "Authorization: Bearer $VIVIX_API_KEY"
+```
+
+**Example response:**
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "models": [
+      { "model_id": "vivix-a1-stream" },
+      { "model_id": "vivix-a1-stream-lite" },
+      { "model_id": "vivix-a1-lite" },
+      { "model_id": "vivix-a1" },
+      { "model_id": "vivix-w1" }
+    ]
+  }
+}
+```
+
+The list reflects your account's enabled models. If a model you expect is missing, contact support to enable it.
+
+<Note>
+  For full endpoint details — request parameters, response schema, and error codes — see the [Models API Reference](/api-reference/models).
+</Note>

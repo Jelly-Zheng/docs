@@ -1,0 +1,90 @@
+---
+title: "Vivix REST API Reference: Base URL and Authentication"
+sidebarTitle: "Overview"
+description: "Full reference for the Vivix REST API: base URL https://api.vivix.ai, API key auth, the response envelope format, and links to every endpoint."
+---
+
+The Vivix API is a unified REST interface for building interactive avatar experiences. Both product lines — Streaming Avatar and Blazing Fast Video Generation — share the same base URL, the same API key authentication scheme, and the same response envelope format. This page covers the basics you need before calling any endpoint.
+
+## Base URL
+
+All API requests are made to the following base URL:
+
+```
+https://api.vivix.ai
+```
+
+Every endpoint path in this reference is relative to this base URL. For example, the full URL to create a Streaming Avatar session is `https://api.vivix.ai/v1/streaming-avatar/sessions`.
+
+## Authentication
+
+Authenticate your requests by including your API key in the `Authorization` header:
+
+```http
+Authorization: Bearer <API_KEY>
+```
+
+You must send this header on every server-side request. Your API key grants access to all endpoints enabled for your account — treat it like a password.
+
+<Warning>
+  Never send your API key to a browser or mobile client. All requests that include `Authorization: Bearer <API_KEY>` must originate from your own backend server. The only credentials that are safe to forward to a browser are `control.client_secret` and the TRTC media credentials returned during Streaming Avatar session creation.
+</Warning>
+
+For full details on key management and browser-safe credentials, see the [Authentication](/authentication) page.
+
+## Response Envelope
+
+Every response from the Vivix API — success or error — is wrapped in the same JSON envelope:
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": { ... }
+}
+```
+
+<ResponseField name="code" type="integer">
+  Status code for the operation. `0` indicates success. Any non-zero value indicates an error — check `message` for a human-readable description.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable status message. `"ok"` on success; a description of the error on failure.
+</ResponseField>
+
+<ResponseField name="data" type="object | null">
+  The response payload for the request. `null` on endpoints that return no data (such as closing a session).
+</ResponseField>
+
+## Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Create Session" icon="circle-play" href="/api-reference/streaming-avatar/create-session">
+    `POST /v1/streaming-avatar/sessions` — Start a new Streaming Avatar session and receive control and media credentials.
+  </Card>
+  <Card title="Close Session" icon="circle-stop" href="/api-reference/streaming-avatar/close-session">
+    `DELETE /v1/streaming-avatar/sessions/{session_id}` — Terminate an active session and invalidate its credentials.
+  </Card>
+  <Card title="Control Channel" icon="tower-broadcast" href="/api-reference/streaming-avatar/control-channel">
+    `WSS` — Connect to the real-time WebSocket control channel to send commands and receive session events.
+  </Card>
+  <Card title="Submit Task" icon="circle-arrow-up" href="/api-reference/video-generation/submit-task">
+    `POST /v1/video-generation/tasks` — Submit an asynchronous video generation task and receive a task ID.
+  </Card>
+  <Card title="Get Task" icon="magnifying-glass" href="/api-reference/video-generation/get-task">
+    `GET /v1/video-generation/tasks/{task_id}` — Poll for task status and retrieve the finished video URL.
+  </Card>
+  <Card title="List Models" icon="list" href="/api-reference/models/list-models">
+    `GET /v1/models` — List all Vivix models enabled for your API key.
+  </Card>
+</CardGroup>
+
+## Rate Limits
+
+The Vivix API enforces rate limits to ensure fair usage across all customers. When you exceed a rate limit, the API returns an HTTP `429 Too Many Requests` response.
+
+<Note>
+  If you receive a `429` response, implement exponential backoff before retrying. Start with a short delay (for example, one second), then double the delay on each subsequent retry up to a maximum interval. Avoid retrying immediately in a tight loop, as this will continue to trigger the rate limit.
+</Note>
+
+Contact [Vivix support](mailto:support@vivix.ai) if your use case requires higher rate limits than your current plan provides.

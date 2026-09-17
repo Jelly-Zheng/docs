@@ -1,0 +1,88 @@
+---
+title: "List Available Models — GET /v1/models API Reference"
+sidebarTitle: "List Models"
+description: "Use GET /v1/models to list every Vivix model enabled for your API key, covering both streaming avatar and video generation product lines."
+---
+
+Use this endpoint to retrieve the list of models your API key is authorized to use. Each model object includes its identifier, product line type, and a human-readable description. Call this endpoint to confirm which models are available before submitting tasks or creating sessions — only enabled models will appear in the response.
+
+## Request
+
+```
+GET https://api.vivix.ai/v1/models
+```
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer <API_KEY>` |
+
+There is no request body for this endpoint.
+
+## Example Request
+
+```bash
+curl https://api.vivix.ai/v1/models \
+  -H "Authorization: Bearer <API_KEY>"
+```
+
+## Response
+
+<ResponseField name="models" type="array">
+  A list of model objects representing every model enabled for your API key. If a model does not appear here, your key does not currently have access to it.
+
+  <Expandable title="model object fields">
+    <ResponseField name="models[].id" type="string">
+      The model identifier. Use this value in the `model` field when creating a session or submitting a task — for example, `vivix-a1-stream` or `vivix-w1`.
+    </ResponseField>
+
+    <ResponseField name="models[].type" type="string">
+      The product line this model belongs to. Either `streaming_avatar` (for use with the Streaming Avatar API) or `video_generation` (for use with the Video Generation API).
+    </ResponseField>
+
+    <ResponseField name="models[].description" type="string">
+      A human-readable description of the model, including its capabilities and intended use case.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "models": [
+      {
+        "id": "vivix-a1-stream",
+        "type": "streaming_avatar",
+        "description": "Full-featured streaming avatar model. Supports real-time interaction, interruption, avatar swapping, and full-body performance."
+      },
+      {
+        "id": "vivix-a1-stream-lite",
+        "type": "streaming_avatar",
+        "description": "Lightweight streaming avatar variant with reduced latency. Optimized for conversational use cases."
+      },
+      {
+        "id": "vivix-a1-lite",
+        "type": "video_generation",
+        "description": "Fast, cost-efficient video generation model for high-volume asynchronous production."
+      },
+      {
+        "id": "vivix-a1",
+        "type": "video_generation",
+        "description": "High-quality video generation model in the A1 line. Produces polished output for professional use cases."
+      },
+      {
+        "id": "vivix-w1",
+        "type": "video_generation",
+        "description": "W1 line video generation model. Delivers distinct visual style and motion characteristics."
+      }
+    ]
+  }
+}
+```
+
+<Note>
+  Only models enabled for your API key are returned by this endpoint. If you need access to a model not listed in your response — for example, a higher-tier model or a model in private beta — contact [Vivix support](mailto:support@vivix.ai) to request access.
+</Note>

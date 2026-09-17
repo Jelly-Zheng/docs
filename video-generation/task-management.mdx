@@ -1,0 +1,135 @@
+---
+title: "Vivix Video Generation: Task Lifecycle and Polling Strategy"
+sidebarTitle: "Task Management"
+description: "Track and manage Vivix video generation tasks: poll for completion status, handle failures, and retrieve finished video URLs reliably."
+---
+
+Every video generation request in Vivix is an asynchronous task. Once you submit a task, it moves through a defined set of states before resolving to a finished video or a failure. Understanding that lifecycle — and implementing a reliable polling strategy — ensures your integration handles both the happy path and edge cases without getting stuck or missing results.
+
+## Task Lifecycle
+
+A task always begins in `pending` and progresses forward; it never moves backward through states. The two terminal states — `completed` and `failed` — end the task permanently.
+
+```
+pending  ──►  processing  ──►  completed
+                          └──►  failed
+```
+
+| State | Meaning |
+|---|---|
+| `pending` | The task is queued and waiting for a rendering worker to pick it up. |
+| `processing` | A worker has started rendering the video. Generation is actively in progress. |
+| `completed` | Rendering finished successfully. The `video_url` field is now present in the response. |
+| `failed` | Rendering did not complete. Check the `message` field in the response for details. |
+
+## Polling Strategy
+
+Implement polling with a maximum retry count to avoid running indefinitely. The function below checks the task status every 3 seconds and returns the `video_url` when the task completes, or throws a descriptive error if it fails or exceeds the retry limit.
+
+```typescript
+const VIVIX_API_BASE = "https://api.vivix.ai";
+
+async function pollForVideoUrl(
+  taskId: string,
+  apiKey: string,
+  maxAttempts: number = 60,
+  intervalMs: number = 3000
+): Promise<string> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await fetch(
+      `${VIVIX_API_BASE}/v1/video-generation/tasks/${taskId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP error polling task ${taskId}: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const { code, message, data } = await response.json();
+
+    if (code !== 0) {
+      throw new Error(`API error polling task ${taskId}: ${message}`);
+    }
+
+    if (data.status === "completed") {
+      if (!data.video_url) {
+        throw new Error(`Task ${taskId} completed but video_url is missing.`);
+      }
+      return data.video_url;
+    }
+
+    if (data.status === "failed") {
+      throw new Error(
+        `Task ${taskId} failed. API message: ${message || "No details provided."}`
+      );
+    }
+
+    // status is "pending" or "processing" — wait and retry
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  throw new Error(
+    `Task ${taskId} did not complete after ${maxAttempts} attempts (${
+      (maxAttempts * intervalMs) / 1000
+    }s). Check the Vivix dashboard for task status.`
+  );
+}
+```
+
+Call it after submitting your task:
+
+```typescript
+const videoUrl = await pollForVideoUrl("task_1a2b3c4d5e", process.env.VIVIX_API_KEY!);
+console.log("Video ready:", videoUrl);
+```
+
+<Note>
+  Keep all polling calls on your server — your API key must never be sent to the browser. Pass the `video_url` to the client only after your server has confirmed the task is `completed`.
+</Note>
+
+## Handling Failures
+
+When a task reaches the `failed` state, the `message` field in the API response describes what went wrong. Read it before retrying:
+
+```json
+{
+  "code": 1001,
+  "message": "Invalid voice_id: voice_xyz789 is not available for this avatar.",
+  "data": {
+    "task_id": "task_1a2b3c4d5e",
+    "status": "failed"
+  }
+}
+```
+
+Follow these steps when a task fails:
+
+1. **Read `message`** — it identifies the specific parameter or condition that caused the failure.
+2. **Correct your request** — fix the offending parameter (e.g. use a valid `voice_id` or `avatar_id`).
+3. **Submit a new task** — failed tasks cannot be resumed; submit a fresh `POST /v1/video-generation/tasks` request with the corrected body.
+
+<Warning>
+  Do not retry a failed task with identical parameters. The failure will recur. Always resolve the underlying issue reported in `message` before resubmitting.
+</Warning>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Task stuck in processing">
+    Video generation time varies by model and video complexity. `vivix-a1-lite` is the fastest option; `vivix-a1` and `vivix-w1` take longer in exchange for higher quality. If a task remains in `processing` beyond several minutes, check the Vivix status page for any ongoing service incidents and confirm that the requested model is enabled for your API key by calling `GET /v1/models`. If the issue persists, contact Vivix support with your `task_id`.
+  </Accordion>
+  <Accordion title="Task failed with error">
+    Read the `message` field in the failed task response — it describes the cause. Common reasons include an invalid `avatar_id` or `voice_id` (verify both are accessible under your account), a `text` input that exceeds the model's character limit, or an unsupported input combination for the selected model. Correct the relevant parameter and submit a new task.
+  </Accordion>
+  <Accordion title="Video URL expired or inaccessible">
+    Video URLs returned in `video_url` are time-limited. Download or cache the video file promptly after retrieving the completed task response. If the URL is no longer accessible, re-poll the task — `GET /v1/video-generation/tasks/{task_id}` — to check whether a refreshed URL is available. For long-term storage, download the file to your own infrastructure as soon as the task completes.
+  </Accordion>
+</AccordionGroup>

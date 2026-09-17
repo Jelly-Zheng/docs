@@ -1,0 +1,60 @@
+---
+title: "Streaming Avatar: Build Real-Time AI Avatar Sessions"
+sidebarTitle: "Overview"
+description: "Build real-time avatar applications with Vivix Streaming Avatar — live audio/video streams, a WSS control channel, and sub-second response times."
+---
+
+Streaming Avatar gives you a continuously running audio and video stream powered by a live AI avatar. Unlike asynchronous video generation — which produces a finished file you play back later — Streaming Avatar is the right choice whenever your user needs to influence the picture while watching it: say something and the avatar responds in real time, swap a pose mid-session, or interrupt an ongoing performance. If your product is conversational, live, or reactive, Streaming Avatar is your integration path.
+
+## How It Works
+
+A Streaming Avatar session combines three distinct channels — REST for lifecycle control, TRTC for media transport, and WebSocket for real-time commands — that you wire together in sequence.
+
+<Steps>
+  <Step title="Create a session via REST">
+    Send a `POST` request to `/v1/streaming-avatar/sessions` from your server. The response returns everything you need to bring the session to life: a `session_id`, TRTC media credentials for the audio/video feed, and a `control` object containing the WebSocket URL (`control.url`) and a short-lived browser-safe token (`control.client_secret`).
+  </Step>
+  <Step title="Join the TRTC media stream">
+    Use the TRTC credentials from the session response to join the real-time media room. This is the live audio and video feed — your user sees and hears the avatar through this stream. Pass the credentials to your TRTC client SDK to subscribe to the avatar's media tracks.
+  </Step>
+  <Step title="Connect to the WSS control channel">
+    Open a WebSocket connection to `control.url` and append `?token=<client_secret>` to authenticate. From this point on, you drive the avatar in real time by sending JSON command messages over the socket — making it speak, interrupting it, swapping the avatar, and more.
+  </Step>
+</Steps>
+
+## Key Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Live Conversation" icon="microphone">
+    Send text or audio to the avatar and receive a real-time spoken response with synchronized lip movement and natural expression — no rendering delay.
+  </Card>
+  <Card title="Full-Body Performance" icon="person-walking">
+    The avatar isn't just a talking head. Drive full-body movement and expressive gestures, making it suitable for live performance, entertainment, and interactive learning scenarios.
+  </Card>
+  <Card title="Avatar & Image Swap" icon="arrows-rotate">
+    Swap the active avatar or background image mid-session without tearing down and recreating the stream. Transitions happen on the fly over the control channel.
+  </Card>
+  <Card title="Interruption Support" icon="hand">
+    Send an interrupt command at any time to stop the avatar mid-speech and queue new instructions immediately — essential for natural back-and-forth conversation.
+  </Card>
+</CardGroup>
+
+## Models
+
+Streaming Avatar is available in two models:
+
+- **`vivix-a1-stream`** — The full-capability streaming model. Recommended for production applications that need the highest expressiveness, full-body motion, and lowest latency response.
+- **`vivix-a1-stream-lite`** — A lighter variant of the same model family, suited for lower-bandwidth environments or cost-sensitive use cases where slightly reduced fidelity is acceptable.
+
+Both models are listed under [`GET /v1/models`](/models) and both are driven through identical API endpoints and control channel commands. See the [Models](/models) page for per-model capability boundaries and selection guidance.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="sliders" href="/streaming-avatar/configuration">
+    Learn how to create and close sessions, select a model, and understand the full session response structure.
+  </Card>
+  <Card title="Control Channel" icon="tower-broadcast" href="/streaming-avatar/control-channel">
+    Explore every WebSocket command and event you can use to drive your avatar in real time.
+  </Card>
+</CardGroup>

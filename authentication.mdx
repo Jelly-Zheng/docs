@@ -1,0 +1,76 @@
+---
+title: "API Keys and Session Credentials for the Vivix API"
+sidebarTitle: "Authentication"
+description: "Understand how API keys authenticate server-side requests and how control.client_secret safely authorizes browser WebSocket connections to Vivix."
+---
+
+Vivix uses two types of credentials depending on where your code runs: long-lived API keys for server-side calls, and short-lived session credentials that are safe to forward to a browser. Understanding the difference is essential — mixing them up is the most common source of security issues when integrating the Vivix API.
+
+## API Keys
+
+You generate API keys in the **API Keys** section of the [Vivix developer platform](https://platform.vivix.ai). Each key is tied to your account and controls which models and resources you can access.
+
+Pass your API key in the `Authorization` header on every server-side request:
+
+```http
+Authorization: Bearer <API_KEY>
+```
+
+**Example — list available models:**
+
+```bash
+curl https://api.vivix.ai/v1/models \
+  -H "Authorization: Bearer $VIVIX_API_KEY"
+```
+
+<Warning>
+  **API keys must stay on your server.** Never embed an API key in browser JavaScript, a mobile app binary, a public repository, or any client-side code. Any request carrying `Authorization: Bearer <API_KEY>` — creating or closing a session, submitting a video generation task — must run on your own backend. If a key is exposed, rotate it immediately from the developer platform.
+</Warning>
+
+## Session Credentials
+
+When you create a Streaming Avatar session, the API returns a `control` object containing two browser-safe fields:
+
+- **`control.client_secret`** — A short-lived credential that authenticates the WebSocket control channel for that session.
+- **`control.url`** — The WebSocket URL for the control channel.
+
+`control.client_secret` has a specific scope and lifetime:
+
+- **Single-session** — It authenticates exactly one session's control channel and no other resources.
+- **Short-lived** — It stays valid until the session ends (up to `max_duration_seconds`, which defaults to 20 minutes). It cannot be refreshed — create a new session to get a new credential.
+- **Not single-use within a session** — You can disconnect and reconnect the control channel using the same `client_secret` as long as the session is still open.
+- **Automatically invalidated** — The credential stops working the moment the session closes or expires. There is no separate revocation mechanism.
+
+**From the browser**, append `client_secret` as the `token` query parameter on the WebSocket URL:
+
+```javascript
+// The query parameter name must be "token", not "client_secret"
+const ws = new WebSocket(`${control.url}?token=${control.client_secret}`);
+```
+
+**From a server-side client**, you can alternatively use the `Authorization` header:
+
+```http
+Authorization: Bearer <control.client_secret>
+```
+
+<Note>
+  Do not log `control.client_secret` or the complete `control.url` in application logs or analytics pipelines. Both values together grant control-channel access for the duration of the session.
+</Note>
+
+## What Is Safe in the Browser
+
+Use this table as a quick reference when deciding what to forward to client-side code:
+
+| Credential | Origin | Browser-safe? | Notes |
+|---|---|---|---|
+| API key | Developer platform | ❌ Server only | Full account access; must never leave your backend |
+| `control.client_secret` | Session creation response | ✅ Browser-safe | Scoped to one session; expires with the session |
+| TRTC credentials | Session creation response | ✅ Browser-safe | Required for the browser to join the media stream |
+
+## Authentication Errors
+
+| Status | Meaning | Common cause |
+|---|---|---|
+| `401 Unauthorized` | The request could not be authenticated | API key is missing, malformed, or has been rotated/deleted |
+| `403 Forbidden` | The request was authenticated but not authorized | The API key does not have access to the requested model or resource — contact support to enable it |

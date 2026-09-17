@@ -1,0 +1,72 @@
+---
+title: "From Zero to Vivix API: Account, Keys, and First Request"
+sidebarTitle: "Quickstart"
+description: "Create your account, generate an API key, verify access with GET /v1/models, and pick the Vivix product line that fits what you are building."
+---
+
+This guide walks you through everything you need to go from zero to your first successful Vivix API call. By the end, you will have a working API key, understand the response format, and be ready to choose the product line that fits what you are building.
+
+<Warning>
+  Your API key grants full access to your Vivix account. **Never send it to a browser, embed it in a mobile app, or commit it to source control.** All requests that carry `Authorization: Bearer <API_KEY>` must run on your own backend server.
+</Warning>
+
+<Steps>
+  <Step title="Create your Vivix account">
+    Register for the Vivix developer platform at [platform.vivix.ai](https://platform.vivix.ai) and sign in to your account. If you already have an account, skip straight to the next step.
+  </Step>
+
+  <Step title="Generate an API key">
+    Open **API Keys** in the developer platform sidebar, create a new key, and copy it immediately — the platform only shows the full key once. Store it in a secure location such as an environment variable or a secrets manager on your server.
+
+    ```bash
+    # Store your key as an environment variable — never hard-code it
+    export VIVIX_API_KEY="your_api_key_here"
+    ```
+  </Step>
+
+  <Step title="Make your first request">
+    Verify your key is working by fetching the list of models available to your account. Send a `GET` request to `/v1/models` with your API key in the `Authorization` header.
+
+    ```bash
+    curl https://api.vivix.ai/v1/models \
+      -H "Authorization: Bearer $VIVIX_API_KEY"
+    ```
+
+    A successful response uses the unified Vivix response envelope:
+
+    ```json
+    {
+      "code": 0,
+      "message": "ok",
+      "data": {
+        "models": [
+          { "model_id": "vivix-a1-stream" },
+          { "model_id": "vivix-a1-stream-lite" },
+          { "model_id": "vivix-a1-lite" },
+          { "model_id": "vivix-a1" },
+          { "model_id": "vivix-w1" }
+        ]
+      }
+    }
+    ```
+
+    Every Vivix endpoint returns this same `{ "code", "message", "data" }` shape. A `code` of `0` means success; any non-zero value means an error, and `message` tells you what went wrong.
+
+    <Note>
+      The models listed in the response reflect what is enabled for your specific API key. If you expect a model and do not see it, contact support to enable it on your account.
+    </Note>
+  </Step>
+
+  <Step title="Choose your product line">
+    Now that your key is working, follow the guide for the product line that matches what you are building.
+
+    <CardGroup cols={2}>
+      <Card title="Streaming Avatar" icon="broadcast-tower" href="streaming-avatar/overview">
+        For real-time, conversation-first avatar experiences. Create a session, join the TRTC media stream, and drive the avatar over WebSocket.
+      </Card>
+      <Card title="Video Generation" icon="film" href="video-generation/overview">
+        For asynchronous video production. Submit a task, poll for completion, and serve the finished playback URL.
+      </Card>
+    </CardGroup>
+  </Step>
+</Steps>

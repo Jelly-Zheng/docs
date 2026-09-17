@@ -1,0 +1,98 @@
+---
+title: "Create Streaming Avatar Session — POST API Reference"
+sidebarTitle: "Create Session"
+description: "POST /v1/streaming-avatar/sessions — creates a new Streaming Avatar session. Returns session ID, control channel credentials, and TRTC media credentials."
+---
+
+Creating a session is the first step in every Streaming Avatar integration. Send this request from your backend server to initialize a real-time avatar session. The response gives you a session ID, a WebSocket URL and short-lived credential for the control channel, and TRTC credentials for joining the media stream — all of which you pass to your client to complete the connection.
+
+<Warning>
+  Run this request from your server only. Never expose your API key to the browser. The `control.client_secret` and TRTC credentials returned here are the only values safe to forward to a client.
+</Warning>
+
+## Request
+
+```
+POST https://api.vivix.ai/v1/streaming-avatar/sessions
+```
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer <API_KEY>` |
+| `Content-Type` | `application/json` |
+
+## Request Body
+
+<ParamField body="model" type="string" required>
+  The model to use for this session. Specify `vivix-a1-stream` for the full model or `vivix-a1-stream-lite` for the lighter-weight variant with lower latency.
+</ParamField>
+
+<ParamField body="avatar_id" type="string">
+  The ID of the avatar to use in the session. If omitted, the platform uses the default avatar for your account. You can swap the avatar mid-session using the control channel.
+</ParamField>
+
+<ParamField body="max_duration_seconds" type="integer">
+  Maximum duration of the session in seconds. The session will automatically close after this time elapses. Defaults to `1200` (20 minutes). Set a lower value to reduce unintended session charges when clients disconnect unexpectedly.
+</ParamField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.vivix.ai/v1/streaming-avatar/sessions \
+  -H "Authorization: Bearer <API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "vivix-a1-stream",
+    "avatar_id": "avatar_abc123",
+    "max_duration_seconds": 600
+  }'
+```
+
+## Response
+
+A successful request returns HTTP `200` with the following `data` fields:
+
+<ResponseField name="session_id" type="string">
+  The unique identifier for this session. Pass this to the [Close Session](/api-reference/streaming-avatar/close-session) endpoint when the session ends.
+</ResponseField>
+
+<ResponseField name="control" type="object">
+  Credentials and connection details for the WebSocket control channel.
+
+  <Expandable title="control fields">
+    <ResponseField name="control.url" type="string">
+      The WebSocket URL for the control channel. Append `?token=<client_secret>` to connect from a browser, or send `Authorization: Bearer <client_secret>` from a server WebSocket client. See the [Control Channel](/api-reference/streaming-avatar/control-channel) reference for full connection details.
+    </ResponseField>
+
+    <ResponseField name="control.client_secret" type="string">
+      A short-lived, single-session credential that authenticates the control channel connection. This credential is safe to forward to your browser client — it is scoped to this session only, valid until the session closes or `max_duration_seconds` elapses, and cannot be refreshed. Do not log this value.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="trtc" type="object">
+  TRTC (Tencent Real-Time Communication) credentials for joining the real-time media stream. Pass these to your client-side TRTC SDK to render the avatar's audio and video. The structure of this object follows the TRTC SDK credential format.
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "session_id": "sess_01jz4k8mxe0000000000000000",
+    "control": {
+      "url": "wss://control.vivix.ai/v1/sessions/sess_01jz4k8mxe0000000000000000/ws",
+      "client_secret": "cs_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    },
+    "trtc": {
+      "app_id": 1400000000,
+      "room_id": "sess_01jz4k8mxe0000000000000000",
+      "user_id": "viewer_01jz4k8mxe",
+      "user_sig": "eJyrVgrxCdYrK...",
+      "sdk_app_id": 1400000000
+    }
+  }
+}
+```

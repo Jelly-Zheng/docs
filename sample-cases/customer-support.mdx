@@ -1,0 +1,175 @@
+---
+title: "Create an AI Avatar Customer Support Agent with Vivix"
+sidebarTitle: "Customer Support"
+description: "Learn to build a real-time AI avatar customer support agent with Vivix Streaming Avatar, integrating your knowledge base for personalized conversations."
+---
+
+An AI avatar customer support agent lets your users hold natural, face-to-face conversations with a live avatar — one that draws on your product knowledge base to answer questions, handle issues, and guide users through resolutions in real time. Instead of reading static FAQs or waiting on a human queue, users interact with an avatar that listens, responds, and adapts to what they actually say.
+
+## What You'll Build
+
+You'll build a real-time customer support experience powered by a Vivix Streaming Avatar. A user opens your support page, sees a live avatar, and can ask questions in natural language. Your backend retrieves the relevant answer from your knowledge base, then instructs the avatar to speak it — all in a matter of seconds.
+
+<Note>
+  This guide uses the **Streaming Avatar** product line (`vivix-a1-stream`). Streaming Avatar is designed for real-time interaction: the avatar listens, responds, and can be interrupted at any moment — exactly what a live support experience requires.
+</Note>
+
+## Architecture
+
+The integration follows a three-tier architecture that keeps your API key secure while delivering a low-latency experience to users.
+
+**Your backend** holds the Vivix API key and is responsible for creating sessions, closing them, and — critically — querying your knowledge base and formulating responses before forwarding them to the avatar. Your backend is the only tier that ever touches the API key.
+
+**Your browser or client** receives the TRTC media credentials and the `control.client_secret` from your backend after session creation. It uses those credentials to join the real-time video stream (so the user can see and hear the avatar) and to open the WebSocket control channel (so your frontend can send speak commands). The API key never travels to the browser.
+
+**The Vivix platform** runs the avatar model, streams audio and video over TRTC, and accepts commands over the WebSocket control channel — processing each speak command and returning the avatar's response as a live media stream.
+
+## Integration Steps
+
+<Steps>
+  <Step title="Create a session on your backend">
+    Call `POST /v1/streaming-avatar/sessions` from your server. Include your API key in the `Authorization` header. The response returns TRTC credentials and a `control` object with a `url` and `client_secret`.
+
+    ```typescript
+    // backend/routes/support-session.ts
+    import express from "express";
+    const router = express.Router();
+
+    router.post("/api/support/session", async (req, res) => {
+      const response = await fetch(
+        "https://api.vivix.ai/v1/streaming-avatar/sessions",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.VIVIX_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "vivix-a1-stream",
+            max_duration_seconds: 1200, // 20 minutes
+          }),
+        }
+      );
+
+      const { code, message, data } = await response.json();
+
+      if (code !== 0) {
+        return res.status(500).json({ error: message });
+      }
+
+      // Return only browser-safe credentials — never the API key
+      res.json({
+        trtc: data.trtc,
+        controlUrl: data.control.url,
+        clientSecret: data.control.client_secret,
+        sessionId: data.session_id,
+      });
+    });
+
+    export default router;
+    ```
+  </Step>
+
+  <Step title="Pass credentials to your frontend">
+    After your backend creates the session, send the TRTC credentials and `control.client_secret` to your frontend. These are the only Vivix-issued values the browser needs. Never forward your API key.
+
+    Your frontend calls your own backend endpoint (e.g. `POST /api/support/session`) and stores the returned credentials locally for use in the next steps.
+  </Step>
+
+  <Step title="Connect the frontend to the media stream and control channel">
+    Use the TRTC credentials to join the real-time media stream so the user can see and hear the avatar. Then open the WebSocket control channel by appending `?token=<client_secret>` to the `controlUrl`.
+
+    ```javascript
+    // frontend/support.js
+
+    // 1. Fetch browser-safe credentials from your backend
+    const { trtc, controlUrl, clientSecret, sessionId } = await fetch(
+      "/api/support/session",
+      { method: "POST" }
+    ).then((r) => r.json());
+
+    // 2. Join the TRTC media stream (using your preferred TRTC SDK)
+    await trtcClient.join({
+      sdkAppId: trtc.sdk_app_id,
+      userId: trtc.user_id,
+      userSig: trtc.user_sig,
+      roomId: trtc.room_id,
+    });
+
+    // 3. Open the WebSocket control channel
+    const ws = new WebSocket(`${controlUrl}?token=${clientSecret}`);
+
+    ws.addEventListener("open", () => {
+      console.log("Control channel connected");
+    });
+
+    ws.addEventListener("message", (event) => {
+      const msg = JSON.parse(event.data);
+      console.log("Avatar event:", msg);
+    });
+    ```
+  </Step>
+
+  <Step title="Send speak commands as users ask questions">
+    When the user submits a question, send a `speak` command over the control channel WebSocket. The avatar will begin speaking the provided text immediately.
+
+    ```javascript
+    function sendSpeakCommand(ws, text) {
+      ws.send(
+        JSON.stringify({
+          type: "speak",
+          data: { text },
+        })
+      );
+    }
+
+    // Example: triggered when the user submits a question
+    submitButton.addEventListener("click", async () => {
+      const question = questionInput.value.trim();
+      if (!question) return;
+
+      // Fetch the answer from your backend (which queries the knowledge base)
+      const { answer } = await fetch("/api/support/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, sessionId }),
+      }).then((r) => r.json());
+
+      sendSpeakCommand(ws, answer);
+    });
+    ```
+  </Step>
+
+  <Step title="Integrate your knowledge base to generate responses">
+    On your backend, handle the `/api/support/answer` route. Retrieve the most relevant content from your knowledge base — using vector search, keyword matching, or an LLM — then compose the final answer text before returning it to the frontend.
+
+    ```typescript
+    // backend/routes/support-answer.ts
+    router.post("/api/support/answer", async (req, res) => {
+      const { question } = req.body;
+
+      // Retrieve relevant documents from your knowledge base
+      const context = await knowledgeBase.search(question, { topK: 3 });
+
+      // Generate a grounded response using an LLM
+      const answer = await llm.chat({
+        system: `You are a helpful support agent. Answer using only the context provided.`,
+        context: context.map((doc) => doc.content).join("\n\n"),
+        user: question,
+      });
+
+      res.json({ answer });
+    });
+    ```
+  </Step>
+</Steps>
+
+## Tips for Customer Support
+
+<Tip>
+  **Handle interruptions gracefully.** If your avatar is speaking and the user starts talking, send an `interrupt` command over the control channel before queuing the next speak command. This stops the current speech immediately and prevents overlapping audio — making the experience feel like a real conversation rather than a scripted demo.
+</Tip>
+
+<Tip>
+  **Ground every response in your knowledge base before speaking.** Always run the user's question through your retrieval and generation pipeline on the backend *before* sending the speak command. Sending unverified or hallucinated content to the avatar damages trust and is much harder to correct once the avatar has already spoken it aloud.
+</Tip>

@@ -1,0 +1,50 @@
+---
+title: "Close a Streaming Avatar Session — DELETE API Reference"
+sidebarTitle: "Close Session"
+description: "DELETE /v1/streaming-avatar/sessions/{session_id} — closes an active Streaming Avatar session and invalidates its credentials immediately."
+---
+
+When a user finishes interacting with a Streaming Avatar session, send this request from your backend to close it cleanly. Closing a session immediately invalidates all associated credentials — including `control.client_secret` and the TRTC tokens — and stops any further session charges. Sessions that are not explicitly closed will remain open until `max_duration_seconds` elapses.
+
+<Tip>
+  Always close sessions explicitly when your users are done to avoid consuming session time unnecessarily. For example, trigger this request when a user navigates away, closes the app, or ends the conversation.
+</Tip>
+
+## Request
+
+```
+DELETE https://api.vivix.ai/v1/streaming-avatar/sessions/{session_id}
+```
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer <API_KEY>` |
+
+## Path Parameters
+
+<ParamField path="session_id" type="string" required>
+  The ID of the session to close. This is the `session_id` returned when you [created the session](/api-reference/streaming-avatar/create-session).
+</ParamField>
+
+## Example Request
+
+```bash
+curl -X DELETE https://api.vivix.ai/v1/streaming-avatar/sessions/sess_01jz4k8mxe0000000000000000 \
+  -H "Authorization: Bearer <API_KEY>"
+```
+
+## Response
+
+A successful request returns HTTP `200` with a `null` data payload:
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": null
+}
+```
+
+<Note>
+  Closing a session immediately invalidates `control.client_secret` and stops billing for the session. Any WebSocket connections using the invalidated credential will be disconnected. Attempting to reconnect to the control channel after the session is closed will fail.
+</Note>

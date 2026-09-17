@@ -1,0 +1,140 @@
+---
+title: "Build Interactive Worlds and Stories with the Vivix API"
+sidebarTitle: "Interactive Worlds"
+description: "Build worlds and stories that react to user input using the Vivix API — currently in preview, powered by the vivix-w1 world model."
+---
+
+Interactive worlds and stories do something no linear video or static narrative can: they change based on what the user says, types, or does. A user makes a decision, and the world branches. They ask a question, and the environment responds. With Vivix, you can generate world-style video content today using the `vivix-w1` model through the Video Generation API — and prepare for real-time reactive world experiences as the Streaming World product line moves toward general availability.
+
+<Note>
+  **Interactive Worlds is a preview feature.** The `vivix-w1` model is available now for asynchronous video generation. The Streaming World model (`vivix-w1-stream`) — which enables real-time reactive worlds — is currently in **private beta** and not yet publicly available. See the [Private Beta: Streaming World](#private-beta-streaming-world) section below to request access.
+</Note>
+
+## What You'll Build
+
+You'll build an experience where the world or story shifts in response to user input. Using `vivix-w1` for video generation, you can produce branching narrative scenes, reactive environment clips, and world-state visualizations as asynchronous video tasks. Each scene is triggered by a user choice or input, generated on demand, and delivered as a playback URL. When Streaming World becomes available, the same experiences will run with real-time latency over a live media stream.
+
+## World Generation with vivix-w1
+
+The `vivix-w1` model is purpose-built for world-style content: environments, scenes, and narratives that feel immersive and spatially coherent. You access it through the standard Video Generation API — submit a task, poll for completion, then serve the result.
+
+Generating a world scene works the same as any video generation task, with `"model": "vivix-w1"` selecting the world model.
+
+```bash
+# Submit a world generation task
+curl -X POST https://api.vivix.ai/v1/video-generation/tasks \
+  -H "Authorization: Bearer $VIVIX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "vivix-w1",
+    "prompt": "A dense forest clearing at dusk. Fireflies begin to appear as the last light fades. A narrow path leads deeper into the trees."
+  }'
+```
+
+The response follows the standard `{ code, message, data }` envelope and returns a `task_id` you use to poll for completion:
+
+```typescript
+// backend/worlds/generate-scene.ts
+
+async function generateWorldScene(prompt: string): Promise<string> {
+  // 1. Submit the task
+  const submitRes = await fetch(
+    "https://api.vivix.ai/v1/video-generation/tasks",
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.VIVIX_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "vivix-w1",
+        prompt,
+      }),
+    }
+  );
+
+  const { code, message, data: task } = await submitRes.json();
+  if (code !== 0) throw new Error(`Task submission failed: ${message}`);
+
+  // 2. Poll until the scene is ready
+  while (true) {
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+
+    const pollRes = await fetch(
+      `https://api.vivix.ai/v1/video-generation/tasks/${task.task_id}`,
+      {
+        headers: { "Authorization": `Bearer ${process.env.VIVIX_API_KEY}` },
+      }
+    );
+
+    const { data } = await pollRes.json();
+
+    if (data.status === "completed") return data.playback_url;
+    if (data.status === "failed") throw new Error("Scene generation failed");
+  }
+}
+
+// Example: generate the opening scene of a story
+const sceneUrl = await generateWorldScene(
+  "An ancient stone library, lit by floating orbs of light. Shelves stretch to the ceiling. A single book glows on a central pedestal."
+);
+
+console.log("Scene ready:", sceneUrl);
+```
+
+### Branching Narratives
+
+For interactive stories, generate each branch of the narrative as a separate task, triggered by the user's choice. Store the playback URLs and serve the appropriate clip based on what the user decides.
+
+```typescript
+// backend/worlds/story-engine.ts
+
+const scenes: Record<string, string> = {};
+
+async function preloadBranches(choices: Record<string, string>) {
+  // Generate all branches in parallel
+  await Promise.all(
+    Object.entries(choices).map(async ([choiceKey, prompt]) => {
+      scenes[choiceKey] = await generateWorldScene(prompt);
+    })
+  );
+}
+
+// Example: preload the two branches after the user's first decision
+await preloadBranches({
+  enter_forest: "The user steps into the dark forest. Branches close behind them. Distant sounds echo through the trees.",
+  follow_river: "The user follows the river downstream. Mist rises from the water. A waterfall appears around the bend.",
+});
+
+// When the user makes a choice, serve the corresponding scene
+function getSceneForChoice(choice: string): string {
+  return scenes[choice] ?? scenes["default"];
+}
+```
+
+## Private Beta: Streaming World
+
+The `vivix-w1-stream` model brings real-time reactivity to world experiences. Instead of generating a video clip and waiting for a playback URL, Streaming World streams the world as a continuous live feed — updating in real time as the user interacts. The world responds to what users say, type, or do with sub-second latency, making fully immersive, reactive narrative experiences possible.
+
+`vivix-w1-stream` is currently in **private beta**. Access is limited and invitation-only while the product is in active development.
+
+<Note>
+  If you're building a product that would benefit from real-time reactive worlds — story games, live interactive narratives, or dynamic simulations — reach out to the Vivix team to request early access to the Streaming World private beta.
+</Note>
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Story Games" icon="gamepad-2">
+    Build narrative adventure games where every scene, environment, and story branch is generated by the world model. Player choices drive the prompt, and the world evolves accordingly. With Streaming World, this becomes fully real-time.
+  </Card>
+  <Card title="Interactive Narratives" icon="book-open">
+    Create branching stories for entertainment or education where readers don't just follow a plot — they influence it. Generate each story branch on demand using `vivix-w1`, or stream the narrative live with Streaming World.
+  </Card>
+  <Card title="Educational World Simulations" icon="flask">
+    Drop learners into historically accurate environments, scientific scenarios, or cultural settings that respond to their exploration. Generate scene variations for each learner path using the Video Generation API.
+  </Card>
+  <Card title="Immersive Brand Experiences" icon="sparkles">
+    Build product showcases, virtual environments, or interactive campaigns where the world adapts to what a visitor expresses interest in — turning passive viewing into active participation.
+  </Card>
+</CardGroup>

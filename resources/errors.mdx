@@ -1,0 +1,114 @@
+---
+title: "Vivix API Error Codes, HTTP Status, and Retry Guide"
+sidebarTitle: "Errors"
+description: "Understand Vivix API error responses — the unified response envelope, HTTP status codes, and how to handle common error scenarios."
+---
+
+Every response from the Vivix API — success or failure — uses the same unified envelope so your error-handling logic stays consistent across all endpoints. Understanding the shape of that envelope, the HTTP status codes Vivix uses, and the most common failure scenarios will help you build resilient integrations that degrade gracefully.
+
+## Response Envelope
+
+All Vivix API responses wrap their payload in a `{ code, message, data }` object. On success, `code` is `0` and `message` is `"ok"`. On error, `code` is a non-zero integer and `message` contains a human-readable description of the problem. The `data` field is `null` when there is no payload to return.
+
+<CodeGroup>
+```json Success
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "session_id": "sess_abc123",
+    "status": "active"
+  }
+}
+```
+
+```json Error
+{
+  "code": 4001,
+  "message": "Invalid API key",
+  "data": null
+}
+```
+</CodeGroup>
+
+Always check `code` in your application logic rather than relying on the HTTP status code alone — the `message` field provides the context you need to understand exactly what went wrong.
+
+## HTTP Status Codes
+
+Vivix uses standard HTTP status codes alongside the `code` field in the response envelope.
+
+| Status | Meaning |
+|--------|---------|
+| `200 OK` | Request succeeded. Check `code` in the body for application-level errors. |
+| `400 Bad Request` | Invalid or missing parameters. Read the `message` field to identify the offending input. |
+| `401 Unauthorized` | The `Authorization` header is missing or the API key is invalid. |
+| `403 Forbidden` | Your API key does not have access to the requested model or resource. |
+| `404 Not Found` | The specified session or task does not exist — it may have expired or the ID is incorrect. |
+| `429 Too Many Requests` | You have exceeded the rate limit. Back off and retry after a delay. |
+| `500 Internal Server Error` | An unexpected error occurred on the Vivix platform. Retry with exponential backoff. |
+
+## Common Error Scenarios
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized">
+    Your request is missing a valid API key. Check the following:
+
+    - Confirm that the `Authorization` header is present in your request and formatted correctly: `Authorization: Bearer <API_KEY>`.
+    - Verify that the key value has not been truncated or corrupted — copy it fresh from the API Keys page if in doubt.
+    - Ensure you are not accidentally sending a `control.client_secret` (a session credential) in place of your API key for server-side calls.
+
+    If the header looks correct and the error persists, the key may have been deleted. Visit **API Keys** on [platform.vivix.ai](https://platform.vivix.ai) to confirm the key is still active.
+  </Accordion>
+
+  <Accordion title="403 Forbidden">
+    Your API key is valid but does not have permission to access the model or resource you requested. Check the following:
+
+    - Confirm the model identifier in your request matches one of the models enabled for your key. Call `GET /v1/models` to list the models your key can access.
+    - If you need access to a model that is not listed, contact Vivix to update your account permissions.
+    - Note that **Streaming World** (`vivix-w1-stream`) is currently in private beta and requires separate access approval.
+  </Accordion>
+
+  <Accordion title="429 Too Many Requests">
+    You have sent requests faster than the API allows. To handle this gracefully:
+
+    - Implement **exponential backoff**: wait a short initial delay (for example, 1 second), then double the delay on each subsequent retry up to a maximum (for example, 32 seconds).
+    - Add **jitter** (a small random offset) to your backoff to avoid thundering-herd problems when many clients retry at the same time.
+    - Check whether you can reduce request frequency by caching responses or batching work.
+    - Do not retry `429` errors in a tight loop — this will keep you rate-limited and may trigger stricter limits.
+  </Accordion>
+
+  <Accordion title="Session Not Found (404)">
+    The session ID in your request could not be found. The most common cause is that the session has expired. Streaming Avatar sessions have a maximum duration controlled by `max_duration_seconds` (20 minutes by default) — once a session closes or expires, its ID is no longer valid.
+
+    To resolve this:
+
+    - Create a new session with `POST /v1/streaming-avatar/sessions` and use the fresh session ID going forward.
+    - If you need sessions longer than the default, set a higher `max_duration_seconds` value when creating the session (subject to the maximum allowed by your plan).
+  </Accordion>
+
+  <Accordion title="Task Failed">
+    An asynchronous video generation task ended in a failed state. To diagnose the issue:
+
+    - Read the `message` field in the task status response — it describes the specific failure reason.
+    - Verify your input parameters: check that the audio, image, or text inputs meet the format and size requirements for the model you selected.
+    - Confirm that the model identifier (`vivix-a1`, `vivix-a1-lite`, `vivix-w1`) is correct and available for your API key.
+    - Correct any identified issues and resubmit the task.
+  </Accordion>
+</AccordionGroup>
+
+## Retrying Requests
+
+Not all errors are worth retrying — doing so for certain error types will simply return the same failure.
+
+**Safe to retry:**
+
+- **`5xx` errors** (for example, `500 Internal Server Error`) indicate a transient platform issue. Retry with exponential backoff. If errors persist beyond a few minutes, check the Vivix status page.
+- **`429 Too Many Requests`** can be retried after the appropriate back-off delay. See the [429 accordion above](#common-error-scenarios) for guidance.
+
+**Fix your request first:**
+
+- **`4xx` errors** (except `429`) indicate that something in your request is wrong. Retrying without changing your request will produce the same error. Read the `message` field, correct the issue — wrong credentials, invalid parameters, missing access — and then send the corrected request.
+
+<Tip>
+  Build a single retry helper in your HTTP client that automatically backs off on `429` and `5xx` responses, and passes `4xx` errors straight through to your application logic. This keeps retry behavior consistent without duplicating it across every API call.
+</Tip>

@@ -1,0 +1,137 @@
+---
+title: "Streaming Avatar WebSocket Control Channel Reference"
+sidebarTitle: "Control Channel"
+description: "Connect a WebSocket to the Vivix control channel to send speak, interrupt, and stop commands and receive live avatar session events."
+---
+
+The control channel is a persistent WebSocket connection that lets you drive a Streaming Avatar session in real time. Once connected, you can send commands to make the avatar speak, interrupt it mid-sentence, or stop its current action — and your client receives live session events as the avatar and session state changes. The control channel is designed to be opened directly from the browser using the short-lived credentials returned when you create a session.
+
+<Warning>
+  Never log or persist `control.client_secret`. It is a short-lived, session-scoped credential — treat it with the same sensitivity as a password. Logging it creates a window of exposure even after the session has closed.
+</Warning>
+
+## Connection
+
+After [creating a session](/api-reference/streaming-avatar/create-session), you receive `control.url` and `control.client_secret` in the response. Use these to open the WebSocket connection.
+
+<Tabs>
+  <Tab title="Browser (query parameter)">
+    Append `?token=<client_secret>` to the control URL and open a standard WebSocket connection:
+
+    ```javascript
+    const sessionId = "sess_01jz4k8mxe0000000000000000";
+    const controlUrl = "wss://control.vivix.ai/v1/sessions/sess_01jz4k8mxe0000000000000000/ws";
+    const clientSecret = "cs_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
+
+    const ws = new WebSocket(`${controlUrl}?token=${clientSecret}`);
+
+    ws.addEventListener("open", () => {
+      console.log("Control channel connected");
+    });
+
+    ws.addEventListener("close", () => {
+      console.log("Control channel closed");
+    });
+    ```
+  </Tab>
+  <Tab title="Server (Authorization header)">
+    From a server-side WebSocket client, send the `Authorization` header instead of the query parameter:
+
+    ```javascript
+    // Node.js example using the 'ws' package
+    import WebSocket from "ws";
+
+    const controlUrl = "wss://control.vivix.ai/v1/sessions/sess_01jz4k8mxe0000000000000000/ws";
+    const clientSecret = "cs_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
+
+    const ws = new WebSocket(controlUrl, {
+      headers: {
+        Authorization: `Bearer ${clientSecret}`,
+      },
+    });
+
+    ws.on("open", () => {
+      console.log("Control channel connected");
+    });
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  The query parameter name must be exactly `token` — not `client_secret` or any other name. Using the wrong parameter name will result in a rejected connection.
+</Note>
+
+## Sending Commands
+
+Send commands to the avatar by calling `ws.send()` with a JSON-encoded command object. All commands include a `type` field that identifies the action.
+
+| Command type | Description | Payload |
+|---|---|---|
+| `speak` | Make the avatar speak the provided text aloud | `{ "type": "speak", "text": "Hello, how can I help you today?" }` |
+| `interrupt` | Interrupt the avatar's current speech immediately | `{ "type": "interrupt" }` |
+| `stop` | Stop the avatar's current action | `{ "type": "stop" }` |
+
+### Example: Sending a speak command
+
+```javascript
+function sendSpeak(ws, text) {
+  const command = {
+    type: "speak",
+    text: text,
+  };
+  ws.send(JSON.stringify(command));
+}
+
+// Make the avatar greet the user
+sendSpeak(ws, "Welcome! I'm here to help you today.");
+
+// Interrupt if the user speaks before the avatar finishes
+function handleUserInterrupt(ws) {
+  ws.send(JSON.stringify({ type: "interrupt" }));
+}
+```
+
+## Receiving Events
+
+The server sends JSON event objects to your WebSocket client as the session and avatar state changes. Parse incoming messages and respond to the event `type` field.
+
+| Event type | Description |
+|---|---|
+| `session.started` | The session is initialized and the avatar is ready to receive commands |
+| `avatar.speaking` | The avatar has started speaking the current text |
+| `avatar.speech_end` | The avatar has finished speaking and is idle |
+| `session.closing` | The session is about to close — credentials will be invalidated imminently |
+
+### Example: Handling incoming events
+
+```javascript
+ws.addEventListener("message", (event) => {
+  const data = JSON.parse(event.data);
+
+  switch (data.type) {
+    case "session.started":
+      console.log("Session ready — sending welcome message");
+      sendSpeak(ws, "Hello! How can I help you today?");
+      break;
+
+    case "avatar.speaking":
+      console.log("Avatar is speaking...");
+      // Optionally show a visual indicator that the avatar is active
+      break;
+
+    case "avatar.speech_end":
+      console.log("Avatar finished speaking — ready for next input");
+      // Re-enable user input controls here
+      break;
+
+    case "session.closing":
+      console.log("Session is closing");
+      // Clean up local state and notify the user
+      ws.close();
+      break;
+
+    default:
+      console.log("Unhandled event type:", data.type);
+  }
+});
+```

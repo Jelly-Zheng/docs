@@ -1,0 +1,192 @@
+---
+title: "Build Interactive Learning Experiences with Avatars"
+sidebarTitle: "Interactive Learning"
+description: "Turn lessons and stories into interactive avatar-powered experiences that adapt and respond as learners participate, using the Vivix API."
+---
+
+Interactive learning experiences do something static video courses and slide decks can't: they respond. When a learner asks a question mid-lesson, stumbles on a concept, or gets an answer right, the experience can adapt in real time — an avatar tutor that listens, explains, and encourages. With Vivix, you can build these experiences using either real-time Streaming Avatar for live, conversational tutoring or the Video Generation API for high-quality pre-produced lesson content.
+
+## What You'll Build
+
+You'll build an avatar-powered learning application where lessons come alive through a speaking, responsive avatar. Depending on your curriculum design, the avatar can hold a real-time dialogue with learners — answering follow-up questions and adjusting explanations on the fly — or deliver polished, scripted lesson videos that play on demand. You can combine both approaches: use video generation for structured lesson modules and streaming for the interactive Q&A moments in between.
+
+## Choosing Your Approach
+
+Picking the right Vivix product line up front shapes your entire integration. Use this table to decide:
+
+| Scenario | Use | Why |
+|---|---|---|
+| A learner asks a follow-up question and the avatar answers live | **Streaming Avatar** | Real-time interaction requires a live control channel and continuous media stream |
+| A structured lesson video plays on demand | **Video Generation** | Asynchronous task produces a finished, distributable video file |
+| A live tutor session with back-and-forth dialogue | **Streaming Avatar** | The avatar must listen and respond within the session in real time |
+| A narrated walkthrough or explainer for a course module | **Video Generation** | Pre-produced content is more cost-effective for scripted, non-interactive material |
+| An adaptive quiz where the avatar reacts to each answer | **Streaming Avatar** | The avatar's speech changes based on whether the learner is correct or incorrect |
+
+<Note>
+  You can mix both approaches in a single app. For example, open a lesson with a pre-produced video clip (Video Generation), then transition to a live tutoring avatar (Streaming Avatar) when the learner signals they have a question.
+</Note>
+
+## Real-Time Tutoring with Streaming Avatar
+
+Use Streaming Avatar when your learning experience requires live dialogue. The avatar listens (via your input capture), and your backend queries a curriculum knowledge base before instructing the avatar to respond.
+
+<Steps>
+  <Step title="Create a tutoring session on your backend">
+    Call `POST /v1/streaming-avatar/sessions` from your server to start the session. Use the `vivix-a1-stream` model. Return only the TRTC credentials and `control.client_secret` to the frontend — never the API key.
+
+    ```typescript
+    // backend/routes/tutor-session.ts
+    const response = await fetch(
+      "https://api.vivix.ai/v1/streaming-avatar/sessions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.VIVIX_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ model: "vivix-a1-stream" }),
+      }
+    );
+
+    const { code, message, data } = await response.json();
+    if (code !== 0) throw new Error(message);
+
+    // Send only browser-safe credentials to the frontend
+    return {
+      trtc: data.trtc,
+      controlUrl: data.control.url,
+      clientSecret: data.control.client_secret,
+    };
+    ```
+  </Step>
+
+  <Step title="Connect the learner to the avatar feed">
+    On the frontend, use the TRTC credentials to join the media stream and display the avatar in your lesson UI. Open the WebSocket control channel using `?token=<client_secret>`.
+
+    ```javascript
+    // frontend/tutor.js
+    const { trtc, controlUrl, clientSecret } = await fetch(
+      "/api/tutor/session",
+      { method: "POST" }
+    ).then((r) => r.json());
+
+    await trtcClient.join({
+      sdkAppId: trtc.sdk_app_id,
+      userId: trtc.user_id,
+      userSig: trtc.user_sig,
+      roomId: trtc.room_id,
+    });
+
+    const ws = new WebSocket(`${controlUrl}?token=${clientSecret}`);
+    ```
+  </Step>
+
+  <Step title="Have the avatar deliver the lesson opening">
+    Once the control channel is open, send the first speak command to introduce the lesson topic. This sets the learning context before the learner's first interaction.
+
+    ```javascript
+    ws.addEventListener("open", () => {
+      ws.send(
+        JSON.stringify({
+          type: "speak",
+          data: {
+            text: "Welcome! Today we're covering the water cycle. Let's start with evaporation — feel free to stop me at any point if you have a question.",
+          },
+        })
+      );
+    });
+    ```
+  </Step>
+
+  <Step title="Handle learner questions in real time">
+    When the learner submits a question or answer, send it to your backend. Your backend queries the curriculum knowledge base, generates a pedagogically appropriate response, and returns the answer text. Then send the speak command over the control channel.
+
+    ```javascript
+    async function handleLearnerInput(input) {
+      // Interrupt any current speech so the avatar can respond immediately
+      ws.send(JSON.stringify({ type: "interrupt" }));
+
+      const { response } = await fetch("/api/tutor/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input }),
+      }).then((r) => r.json());
+
+      ws.send(JSON.stringify({ type: "speak", data: { text: response } }));
+    }
+    ```
+  </Step>
+
+  <Step title="Close the session when the lesson ends">
+    Call `DELETE /v1/streaming-avatar/sessions/{session_id}` from your backend when the learner finishes the lesson or navigates away. This releases resources and prevents unnecessary session usage.
+
+    ```typescript
+    await fetch(
+      `https://api.vivix.ai/v1/streaming-avatar/sessions/${sessionId}`,
+      {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${process.env.VIVIX_API_KEY}` },
+      }
+    );
+    ```
+  </Step>
+</Steps>
+
+## Pre-Produced Lesson Videos
+
+For scripted lesson content — narrated walkthroughs, explainers, or module introductions — use the Video Generation API. Submit a task with your script and avatar settings, poll until the video is ready, then serve the playback URL to learners on demand.
+
+```typescript
+// backend/lessons/generate-video.ts
+
+// 1. Submit the generation task
+const taskResponse = await fetch(
+  "https://api.vivix.ai/v1/video-generation/tasks",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.VIVIX_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "vivix-a1",
+      script: "In this lesson, we'll explore how photosynthesis converts sunlight into energy that plants use to grow.",
+      // Add your avatar and voice configuration here
+    }),
+  }
+);
+
+const { data: task } = await taskResponse.json();
+
+// 2. Poll for completion
+let videoUrl: string | null = null;
+while (!videoUrl) {
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+
+  const statusResponse = await fetch(
+    `https://api.vivix.ai/v1/video-generation/tasks/${task.task_id}`,
+    { headers: { "Authorization": `Bearer ${process.env.VIVIX_API_KEY}` } }
+  );
+
+  const { data } = await statusResponse.json();
+  if (data.status === "completed") videoUrl = data.playback_url;
+  if (data.status === "failed") throw new Error("Video generation failed");
+}
+
+// 3. Store and serve the playback URL to learners
+console.log("Lesson video ready:", videoUrl);
+```
+
+## Tips for Learning Apps
+
+<Tip>
+  **Pace responses for learners, not for speed.** Younger learners or those encountering a concept for the first time benefit from shorter, slower sentences. When generating avatar responses on your backend, instruct your LLM to keep explanations concise and to use simple language. You can adjust speaking rate in the speak command to slow the avatar down for complex topics.
+</Tip>
+
+<Tip>
+  **Handle incorrect answers gracefully.** When a learner answers a quiz question incorrectly, frame the avatar's response as encouragement rather than correction. Generate a speak command that acknowledges the attempt, gently corrects the misconception, and invites the learner to try again — rather than simply stating "wrong." This preserves learner confidence and keeps engagement high.
+</Tip>
+
+<Tip>
+  **Design for accessibility from the start.** Always render captions alongside the avatar video — either from a transcript you generate on your backend before sending the speak command or from a live caption service subscribed to the audio stream. Provide a text-based fallback mode for learners who cannot or prefer not to use audio. Streaming Avatar sessions also work well with screen reader announcements for UI events around the video player.
+</Tip>

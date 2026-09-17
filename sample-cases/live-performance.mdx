@@ -1,0 +1,175 @@
+---
+title: "Create a Full-Body Live Avatar Performance with Vivix"
+sidebarTitle: "Live Performance"
+description: "Use Vivix Streaming Avatar to build full-body live performers that move, interact with surroundings, and respond to audiences in real time."
+---
+
+A live avatar performance puts a full-body digital performer on stage — one that moves expressively, reacts to its surroundings, and engages directly with a real audience in real time. Whether you're producing live entertainment, interactive brand experiences, or virtual event headliners, Vivix Streaming Avatar gives you a control channel to direct every movement and line of dialogue while the avatar streams live to your viewers.
+
+## What You'll Build
+
+You'll create a real-time live performance pipeline where a full-body avatar performs on stream, responds to audience input, and can be directed dynamically throughout the show. Your operator or event system drives the avatar over a WebSocket control channel, while the audience watches the live TRTC media feed. The avatar can speak scripted lines, deliver improvised audience responses, and execute gestures — all with sub-second latency.
+
+## Architecture
+
+The performance setup follows the same three-tier model as other Streaming Avatar integrations, adapted for a live show context.
+
+**Your backend** holds the API key and creates the session before the performance begins. It also serves as the routing layer between your operator interface, your audience input pipeline, and the Vivix control channel — ensuring that every command sent to the avatar is validated and sequenced correctly.
+
+**Your operator interface or event system** is the broadcast control surface. It connects to the control channel using the `client_secret` and sends speak, gesture, and action commands to the avatar in real time. For audience-driven moments, it receives filtered and moderated audience inputs, generates appropriate avatar responses, and forwards them as commands.
+
+**The Vivix platform** runs the `vivix-a1-stream` model, renders the full-body avatar, and streams audio and video over TRTC to every viewer in the audience feed.
+
+## Integration Steps
+
+<Steps>
+  <Step title="Create a session with the vivix-a1-stream model">
+    Before the performance begins, call `POST /v1/streaming-avatar/sessions` from your backend to create the session. Use the `vivix-a1-stream` model for full-body performance capability. Store the returned session ID so you can close the session cleanly when the show ends.
+
+    ```typescript
+    // backend/performance/create-session.ts
+    async function createPerformanceSession() {
+      const response = await fetch(
+        "https://api.vivix.ai/v1/streaming-avatar/sessions",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.VIVIX_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "vivix-a1-stream",
+            max_duration_seconds: 1200, // 20-minute maximum per session
+          }),
+        }
+      );
+
+      const { code, message, data } = await response.json();
+      if (code !== 0) throw new Error(`Session creation failed: ${message}`);
+
+      return {
+        sessionId: data.session_id,
+        trtc: data.trtc,
+        controlUrl: data.control.url,
+        clientSecret: data.control.client_secret,
+      };
+    }
+    ```
+  </Step>
+
+  <Step title="Join the TRTC media stream for the performance feed">
+    Distribute the TRTC credentials to your broadcast or audience viewing layer. Join the TRTC room to start receiving the avatar's live audio and video feed. Route this stream into your broadcast pipeline — OBS, a custom video player, or a WebRTC viewer — so your audience can watch.
+
+    ```javascript
+    // broadcast/viewer.js
+
+    // Receive TRTC credentials from your backend
+    const { trtc } = await fetch("/api/performance/credentials").then((r) =>
+      r.json()
+    );
+
+    // Join the TRTC room to receive the performance feed
+    await trtcClient.join({
+      sdkAppId: trtc.sdk_app_id,
+      userId: trtc.user_id,
+      userSig: trtc.user_sig,
+      roomId: trtc.room_id,
+    });
+
+    // Subscribe to the remote avatar stream
+    trtcClient.on("stream-added", (event) => {
+      trtcClient.subscribe(event.stream);
+    });
+
+    trtcClient.on("stream-subscribed", (event) => {
+      event.stream.play("performance-video-container");
+    });
+    ```
+  </Step>
+
+  <Step title="Open the control channel to direct movements and speech">
+    Open the WebSocket control channel from your operator interface. Use `?token=<client_secret>` to authenticate. From here, you can send speak commands for scripted lines, trigger gestures and actions for expressive movement, and interrupt the avatar whenever the show requires it.
+
+    ```javascript
+    // operator/control-panel.js
+
+    const ws = new WebSocket(`${controlUrl}?token=${clientSecret}`);
+
+    // Send a scripted spoken line
+    function speak(text) {
+      ws.send(JSON.stringify({ type: "speak", data: { text } }));
+    }
+
+    // Trigger a gesture or physical action
+    function triggerAction(action) {
+      ws.send(JSON.stringify({ type: "action", data: { action } }));
+    }
+
+    // Interrupt the current speech immediately
+    function interrupt() {
+      ws.send(JSON.stringify({ type: "interrupt" }));
+    }
+
+    // Example: open the show
+    ws.addEventListener("open", () => {
+      speak("Hello, everyone — welcome to tonight's performance!");
+    });
+    ```
+  </Step>
+
+  <Step title="Handle audience inputs and route them to the avatar">
+    Collect audience inputs through your platform — chat messages, voice submissions, or interactive prompts. Moderate and filter them on your backend, generate an appropriate avatar response, then send the speak command over the control channel. For high-volume input bursts, queue commands and process them in order to keep the performance coherent.
+
+    ```typescript
+    // backend/performance/audience-router.ts
+
+    const commandQueue: string[] = [];
+    let isSpeaking = false;
+
+    async function handleAudienceInput(input: string) {
+      // Moderate and filter the input
+      const safe = await moderator.check(input);
+      if (!safe) return;
+
+      // Generate a short, performance-appropriate response
+      const response = await llm.generate({
+        system: "You are a charismatic live performer. Keep responses under 30 words.",
+        user: input,
+      });
+
+      commandQueue.push(response);
+      processQueue();
+    }
+
+    function processQueue() {
+      if (isSpeaking || commandQueue.length === 0) return;
+      isSpeaking = true;
+      const next = commandQueue.shift()!;
+      controlChannel.send(JSON.stringify({ type: "speak", data: { text: next } }));
+    }
+
+    // Mark speaking as done when the avatar finishes
+    controlChannel.on("message", (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "speak_end") {
+        isSpeaking = false;
+        processQueue();
+      }
+    });
+    ```
+  </Step>
+</Steps>
+
+## Performance Tips
+
+<Tip>
+  **Minimize control channel latency.** Keep your operator interface and backend as geographically close to the Vivix API endpoint as possible. A direct connection from your backend to the control channel — rather than routing through multiple proxy layers — ensures commands reach the avatar with minimal delay, which is critical for a live performance feel.
+</Tip>
+
+<Tip>
+  **Throttle and queue audience input bursts.** Live audiences tend to send inputs all at once — right after the avatar asks a question or a viral moment happens. Implement a debounced queue on your backend so commands arrive at the avatar one at a time, in a logical sequence. Sending too many speak commands in rapid succession will result in choppy, fragmented dialogue.
+</Tip>
+
+<Tip>
+  **Plan for session limits in extended shows.** Each session runs for up to `max_duration_seconds` (20 minutes by default). For longer performances, build a session handoff mechanism into your backend: monitor elapsed time, create a new session before the current one expires, and transition the audience feed seamlessly. Store the `session_id` so you can explicitly close sessions when the performance ends.
+</Tip>

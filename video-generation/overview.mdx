@@ -1,0 +1,64 @@
+---
+title: "Vivix Video Generation API: Async Avatar Video Overview"
+sidebarTitle: "Overview"
+description: "Generate AI avatar videos asynchronously with Vivix — submit a task, poll for completion, and get a playback URL for the finished video."
+---
+
+Vivix Blazing Fast Video Generation lets you produce polished AI avatar videos on demand without a live session. Instead of streaming in real time, you submit a generation task, wait for it to complete, and receive a playback URL for the finished video. Choose this product line when you need a distributable video file — for pre-recorded content, marketing assets, educational modules, or any use case where your viewers don't need to influence what the avatar does while they watch.
+
+## How It Works
+
+<Steps>
+  <Step title="Submit a Generation Task">
+    Send a `POST` request to `/v1/video-generation/tasks` with your chosen model and inputs — text for the avatar to speak, audio to drive the lip sync, or images to incorporate into the video. The API responds immediately with a `task_id` and a `pending` status.
+  </Step>
+  <Step title="Poll for Completion">
+    Send periodic `GET` requests to `/v1/video-generation/tasks/{task_id}` to check the task status. The status moves from `pending` through `processing` and finally resolves to either `completed` or `failed`.
+  </Step>
+  <Step title="Fetch the Playback URL">
+    When the status is `completed`, the response includes a `video_url` field containing the URL of the finished video. Use this URL to play or distribute the generated video in your application.
+  </Step>
+</Steps>
+
+## Models
+
+Vivix Video Generation supports two model lines, giving you a choice between speed, quality, and visual style.
+
+| Model | Line | Characteristics |
+|---|---|---|
+| `vivix-a1-lite` | A1 | Fastest generation times; ideal for prototyping and high-volume pipelines where turnaround speed matters most |
+| `vivix-a1` | A1 | High-quality output; best for production assets where visual fidelity is the priority |
+| `vivix-w1` | W1 | World-style video generation; produces richly contextualized scenes with expressive avatar performance |
+
+<Note>
+  All three models share the same task submission and polling endpoints. You switch between them by changing the `model` field in your request body.
+</Note>
+
+## Input Types
+
+Every generation task accepts one or more of the following input types, which you include in the request body when submitting a task:
+
+- **Text** — Provide a script and the avatar will speak it, with lip sync generated automatically.
+- **Audio** — Supply an audio file to drive the avatar's lip sync directly, using your own recorded voice or a text-to-speech output.
+- **Images** — Include images to incorporate visual content into the generated video.
+
+You can combine inputs in a single task — for example, pairing a text script with a custom avatar image — depending on the model and your use case.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Generate Avatar Videos"
+    icon="video"
+    href="/video-generation/avatar-video"
+  >
+    Submit your first generation task, explore request parameters, and retrieve finished videos with a playback URL.
+  </Card>
+  <Card
+    title="Task Management"
+    icon="list-check"
+    href="/video-generation/task-management"
+  >
+    Learn polling strategies, understand the task lifecycle, and handle failures gracefully in production.
+  </Card>
+</CardGroup>

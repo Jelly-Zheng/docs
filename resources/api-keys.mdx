@@ -1,0 +1,75 @@
+---
+title: "Vivix API Keys: Create, Secure, and Rotate Credentials"
+sidebarTitle: "API Keys"
+description: "Learn how to create, manage, and rotate Vivix API keys on platform.vivix.ai, and follow security best practices to keep your credentials safe."
+---
+
+API keys are the credentials your server uses to authenticate every request to the Vivix API. Each key you create is tied to your developer account and grants access to the models and resources enabled for that account. Keep your keys secret — they are long-lived credentials that must never leave your server environment.
+
+## Creating an API Key
+
+<Steps>
+  <Step title="Sign in to the developer platform">
+    Go to [platform.vivix.ai](https://platform.vivix.ai) and sign in to your Vivix developer account.
+  </Step>
+  <Step title="Open API Keys">
+    In the left navigation, click **API Keys** to open the key management page.
+  </Step>
+  <Step title="Create a new key">
+    Click **Create Key**, enter a descriptive name (for example, `production-backend` or `staging`), and confirm. A unique key is generated for you.
+  </Step>
+  <Step title="Copy and store the key securely">
+    Copy the key immediately and save it in a secure location such as a secrets manager or password vault. **The key will not be shown again** — if you lose it, you will need to rotate it.
+  </Step>
+</Steps>
+
+<Warning>
+  Store your API key securely and treat it like a password. Never commit it to version control, include it in client-side code, or log it to analytics. If a key is exposed, delete it immediately and generate a replacement.
+</Warning>
+
+## Using Your API Key
+
+Include your API key in the `Authorization` header of every server-side request:
+
+```http
+Authorization: Bearer <API_KEY>
+```
+
+Here is a minimal example using `curl` to verify authentication by listing available models:
+
+```bash
+curl https://api.vivix.ai/v1/models \
+  -H "Authorization: Bearer <API_KEY>"
+```
+
+A successful response returns a `200 OK` with the unified `{ code, message, data }` envelope and a list of models enabled for your key.
+
+## Key Security Best Practices
+
+Follow these practices to keep your API keys secure:
+
+- **Use environment variables** — load your key from `process.env`, a `.env` file excluded from version control, or a secrets manager such as AWS Secrets Manager or HashiCorp Vault.
+- **Rotate keys regularly** — replace keys on a schedule (for example, every 90 days) to limit the blast radius of any undetected leak.
+- **Use separate keys per environment** — maintain distinct keys for development, staging, and production so you can revoke one without affecting the others.
+- **Never expose keys in the browser or mobile apps** — any call that requires your API key must run on your own backend. Browsers only need the short-lived `control.client_secret` and TRTC credentials returned by session creation.
+- **Restrict key access** — only share keys with team members or systems that genuinely need them, and revoke access when it is no longer required.
+
+## Rotating Keys
+
+Rotate a key whenever you suspect it has been compromised, when a team member with access leaves, or as part of a regular security schedule.
+
+<Steps>
+  <Step title="Create a new key">
+    Follow the steps in [Creating an API Key](#creating-an-api-key) above to generate a fresh key with a clear name indicating it is the replacement.
+  </Step>
+  <Step title="Update your application">
+    Replace the old key value in your environment variables or secrets manager with the new key. Deploy the updated configuration.
+  </Step>
+  <Step title="Delete the old key">
+    Once your application is confirmed to be running correctly with the new key, return to the **API Keys** page and delete the old key.
+  </Step>
+</Steps>
+
+<Note>
+  If you suspect a key has been compromised, delete it immediately from the API Keys page — do not wait until you have a replacement ready. Your service will return `401 Unauthorized` errors until you deploy a new key, but that is safer than leaving a compromised credential active.
+</Note>

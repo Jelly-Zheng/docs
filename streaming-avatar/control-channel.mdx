@@ -1,0 +1,147 @@
+---
+title: "Drive Your Streaming Avatar with the WSS Control Channel"
+sidebarTitle: "Control Channel"
+description: "Use the Vivix WebSocket control channel to send real-time commands to your Streaming Avatar session — speech, actions, interruptions, and avatar swaps."
+---
+
+The control channel is a persistent WebSocket connection that gives you real-time command-and-control over a running Streaming Avatar session. Once connected, you send JSON messages to make the avatar speak, interrupt it mid-sentence, stop it, or swap its identity — and the server sends structured event messages back over the same connection so you always know exactly what the avatar is doing. The control channel is separate from the TRTC media stream: the media stream carries audio and video, while the control channel carries commands and events.
+
+## Connecting
+
+The `control.url` and `control.client_secret` values returned when you created the session are everything you need to open the connection. How you authenticate depends on where your code is running.
+
+<Tabs>
+  <Tab title="Browser (query parameter)">
+    Append `?token=<client_secret>` to `control.url` and open a standard WebSocket. This is the recommended approach for browser clients.
+
+    ```javascript
+    // Passed from your server after session creation
+    const controlUrl = "wss://control.vivix.ai/v1/streaming-avatar/sessions/sess_01jz4k8mw3e7v9xqncbfhd2r5t/control";
+    const clientSecret = "cs_live_a8f3bx92nzq0trwepjdhylk5vc";
+
+    const ws = new WebSocket(`${controlUrl}?token=${clientSecret}`);
+
+    ws.addEventListener("open", () => {
+      console.log("Control channel connected");
+    });
+
+    ws.addEventListener("message", (event) => {
+      const msg = JSON.parse(event.data);
+      console.log("Event from avatar:", msg);
+    });
+
+    ws.addEventListener("close", (event) => {
+      console.log("Control channel closed:", event.code, event.reason);
+    });
+    ```
+  </Tab>
+  <Tab title="Server (Authorization header)">
+    From a server-side WebSocket client, you can pass `control.client_secret` in the `Authorization` header instead of the query string.
+
+    ```javascript
+    // Node.js example using the 'ws' package
+    import WebSocket from "ws";
+
+    const ws = new WebSocket(controlUrl, {
+      headers: {
+        Authorization: `Bearer ${clientSecret}`,
+      },
+    });
+
+    ws.on("open", () => console.log("Control channel connected"));
+    ws.on("message", (data) => console.log("Event:", JSON.parse(data)));
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  The query parameter name must be `token` — not `client_secret`, not `key`, not anything else. Using the wrong parameter name will result in an authentication failure when the WebSocket handshake completes.
+</Note>
+
+## Sending Commands
+
+Commands are JSON objects you send over the WebSocket after it is open. Every command has a `type` field that identifies the action. Send them with `ws.send(JSON.stringify(command))` from the browser, or the equivalent in your server-side WebSocket library.
+
+### Speak
+
+Make the avatar say something. The avatar will synthesise speech from the provided text and begin delivering it through the TRTC media stream immediately.
+
+```json
+{
+  "type": "speak",
+  "text": "Hello! How can I help you today?"
+}
+```
+
+### Interrupt
+
+Stop the avatar mid-speech. Any text it was in the process of speaking is discarded. The avatar returns to an idle, ready state. Send this when the user starts talking over the avatar, or when your application logic needs to take back the floor.
+
+```json
+{
+  "type": "interrupt"
+}
+```
+
+### Stop
+
+Gracefully stop the current activity. Unlike `interrupt`, `stop` signals a clean end to the current action rather than a forceful cut. Use it when a scripted sequence finishes and you want the avatar to settle into a neutral pose.
+
+```json
+{
+  "type": "stop"
+}
+```
+
+## Receiving Events
+
+The server sends JSON event messages back to you over the same WebSocket connection. Parse every incoming message as JSON and branch on the `type` field to handle each event type.
+
+### Session Started
+
+Sent by the server immediately after the WebSocket handshake is accepted, confirming the session is active and ready to receive commands.
+
+```json
+{
+  "type": "session.started",
+  "session_id": "sess_01jz4k8mw3e7v9xqncbfhd2r5t"
+}
+```
+
+### Speech Started
+
+Sent when the avatar begins speaking in response to a `speak` command. Use this event to suppress microphone input or show a visual indicator that the avatar has the floor.
+
+```json
+{
+  "type": "speech.started",
+  "session_id": "sess_01jz4k8mw3e7v9xqncbfhd2r5t"
+}
+```
+
+### Speech Ended
+
+Sent when the avatar finishes delivering its speech. Use this event to re-enable microphone input or signal to the user that it is their turn to respond.
+
+```json
+{
+  "type": "speech.ended",
+  "session_id": "sess_01jz4k8mw3e7v9xqncbfhd2r5t"
+}
+```
+
+## Reconnecting
+
+If the WebSocket connection drops mid-session — due to a network hiccup, a browser tab backgrounding, or an app restarting — you can reconnect using the same `control.client_secret` without creating a new session. Simply reopen the WebSocket to `control.url?token=<client_secret>` and the server will pick up the session where it left off.
+
+Keep these constraints in mind:
+
+- `control.client_secret` is valid for the lifetime of the session — not just a single connection. You can connect and reconnect as many times as needed.
+- The credential stops working the instant the session closes (either via a `DELETE` request from your server or because `max_duration_seconds` elapsed). There is no way to extend or refresh it.
+- If you receive a close code indicating session expiry, create a new session from your server to obtain fresh credentials rather than retrying the old connection.
+
+## Security
+
+<Warning>
+  Do not log `control.client_secret` or the complete `control.url` (which contains the session path) in your application logs, analytics pipelines, or error-reporting tools. Although `client_secret` is safer than your API key — it is session-scoped and short-lived — an exposed credential can allow a third party to send commands to your avatar session for its remaining duration. Treat it with the same care as a session token in any web application.
+</Warning>

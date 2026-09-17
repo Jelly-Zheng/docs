@@ -1,0 +1,93 @@
+---
+title: "Vivix API FAQ: Auth, Sessions, Models, and Troubleshooting"
+sidebarTitle: "FAQ"
+description: "Answers to common questions about the Vivix API — authentication, session limits, model selection, billing, and troubleshooting."
+---
+
+This page collects answers to the questions developers most commonly ask when building on the Vivix API. If your question is not covered here, reach out to the Vivix team through the developer platform or review the product-specific documentation for [Streaming Avatar](/streaming-avatar/overview) and [Video Generation](/video-generation/overview).
+
+## Authentication & Security
+
+<AccordionGroup>
+  <Accordion title="Can I use my API key in the browser?">
+    No. Your Vivix API key must stay on your server at all times. Any request that carries `Authorization: Bearer <API_KEY>` — creating or closing a session, submitting a video generation task — must be made from your backend.
+
+    The only credentials that are safe to send to the browser are:
+
+    - **`control.client_secret`** — a short-lived credential returned by session creation that authenticates the WebSocket control channel for one session.
+    - **TRTC media credentials** — the real-time media stream credentials returned alongside the session.
+
+    Pass these values from your server to your frontend at runtime. Never hard-code or expose your API key in client-side code, mobile apps, or public repositories.
+  </Accordion>
+
+  <Accordion title="How long does control.client_secret last?">
+    `control.client_secret` remains valid for the lifetime of the session — up to `max_duration_seconds`, which defaults to **20 minutes**. It cannot be refreshed or extended. Once the session ends or expires, the credential stops working immediately.
+
+    To start a new interaction after expiry, create a new session from your server. The new session will return a fresh `control.client_secret`.
+  </Accordion>
+
+  <Accordion title="Can I reconnect to a session's control channel?">
+    Yes. `control.client_secret` is not single-use — you can reconnect the WebSocket control channel as many times as needed during the same session. For example, if the browser loses connectivity and re-establishes the WebSocket, append the same `control.client_secret` as the `token` query parameter to `control.url` and reconnect.
+
+    The credential stops working only when the session itself closes or expires.
+  </Accordion>
+</AccordionGroup>
+
+## Sessions & Models
+
+<AccordionGroup>
+  <Accordion title="What is the maximum session duration?">
+    By default, Streaming Avatar sessions last up to **20 minutes**, controlled by the `max_duration_seconds` parameter you set when creating the session. When a session reaches its limit, it closes automatically and the `control.client_secret` becomes invalid.
+
+    To continue beyond the limit, create a new session from your server and pass the fresh credentials to your frontend. Plan your application's UX around this boundary — for example, prompt the user before the session approaches expiry.
+  </Accordion>
+
+  <Accordion title="Which model should I use?">
+    Choose based on whether your use case requires real-time interaction or asynchronous video output:
+
+    | Model | Use case |
+    |-------|----------|
+    | `vivix-a1-stream` | Real-time Streaming Avatar; full capability |
+    | `vivix-a1-stream-lite` | Real-time Streaming Avatar; lighter variant with reduced resource usage |
+    | `vivix-a1` | Asynchronous avatar video generation; highest quality |
+    | `vivix-a1-lite` | Asynchronous avatar video generation; faster and lighter |
+    | `vivix-w1` | Asynchronous world-style video generation |
+
+    If your user needs to speak to or influence the avatar live while watching, choose a Streaming Avatar model. If you just need a finished video file to play or distribute, choose a video generation model. See the [Models](/models) page for detailed capability comparisons.
+  </Accordion>
+
+  <Accordion title="How do I know which models are available for my API key?">
+    Call `GET /v1/models` with your API key to list every model your account can access:
+
+    ```bash
+    curl https://api.vivix.ai/v1/models \
+      -H "Authorization: Bearer <API_KEY>"
+    ```
+
+    The response returns a list of model identifiers enabled for your key. If a model you need is missing, contact Vivix to request access.
+  </Accordion>
+</AccordionGroup>
+
+## Video Generation
+
+<AccordionGroup>
+  <Accordion title="How long does video generation take?">
+    Generation time depends on the model you select and the length of the video you are producing. After you submit a task with `POST /v1/video-generation/tasks`, poll the task status endpoint (`GET /v1/video-generation/tasks/{id}`) periodically until the `status` field returns `completed`. Once complete, the response includes a playback URL for the finished video.
+
+    Avoid polling more frequently than once every few seconds to stay within rate limits. Implement exponential backoff if you encounter `429` errors during polling.
+  </Accordion>
+
+  <Accordion title="Do video URLs expire?">
+    Yes. Generated video URLs have a limited lifetime — download or serve the video promptly after the task completes rather than storing the URL for long-term use. If you need to serve the video later, download it to your own storage (for example, an S3 bucket or CDN) and serve it from there.
+  </Accordion>
+</AccordionGroup>
+
+## Streaming World
+
+<AccordionGroup>
+  <Accordion title="When will Streaming World be available?">
+    **Streaming World** (`vivix-w1-stream`) is currently in **private beta** and is not yet publicly available. If you are building a product that requires real-time world generation and want early access, contact the Vivix team through the developer platform.
+
+    The asynchronous world model `vivix-w1` is available now for video generation tasks. See the [Models](/models) page for details.
+  </Accordion>
+</AccordionGroup>

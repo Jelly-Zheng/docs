@@ -1,0 +1,102 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Vivix API Platform",
+  "theme": "luma",
+  "colors": {
+    "primary": "#848484",
+    "light": "#111111",
+    "dark": "#dedede"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication",
+              "models"
+            ]
+          },
+          {
+            "group": "Streaming Avatar",
+            "pages": [
+              "streaming-avatar/overview",
+              "streaming-avatar/configuration",
+              "streaming-avatar/control-channel",
+              "streaming-avatar/templates"
+            ]
+          },
+          {
+            "group": "Video Generation",
+            "pages": [
+              "video-generation/overview",
+              "video-generation/avatar-video",
+              "video-generation/task-management"
+            ]
+          },
+          {
+            "group": "Sample Cases",
+            "pages": [
+              "sample-cases/customer-support",
+              "sample-cases/live-performance",
+              "sample-cases/interactive-learning",
+              "sample-cases/interactive-worlds"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/api-keys",
+              "resources/errors",
+              "resources/faq"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/introduction"
+            ]
+          },
+          {
+            "group": "Streaming Avatar",
+            "pages": [
+              "api-reference/streaming-avatar/create-session",
+              "api-reference/streaming-avatar/close-session",
+              "api-reference/streaming-avatar/control-channel"
+            ]
+          },
+          {
+            "group": "Video Generation",
+            "pages": [
+              "api-reference/video-generation/submit-task",
+              "api-reference/video-generation/get-task"
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api-reference/models/list-models"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Get API Key",
+      "href": "https://platform.vivix.ai"
+    }
+  }
+}

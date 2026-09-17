@@ -1,0 +1,83 @@
+---
+title: "Submit a Video Generation Task — POST API Reference"
+sidebarTitle: "Submit Task"
+description: "POST /v1/video-generation/tasks — submits a new video generation task. Returns a task ID to poll for completion and retrieve the finished video URL."
+---
+
+Video generation on Vivix is asynchronous — you submit a task, receive a task ID immediately, and then poll a separate endpoint until the video is ready. This endpoint kicks off that process. Send your model choice, script, avatar, and voice selections, and the platform will begin rendering the video in the background. All task submissions must be made from your backend server.
+
+<Warning>
+  Run this request from your server only. Never expose your API key to the browser or mobile clients. The `Authorization: Bearer <API_KEY>` header must only appear in server-side code.
+</Warning>
+
+## Request
+
+```
+POST https://api.vivix.ai/v1/video-generation/tasks
+```
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer <API_KEY>` |
+| `Content-Type` | `application/json` |
+
+## Request Body
+
+<ParamField body="model" type="string" required>
+  The video generation model to use. Choose from the A1 line — `vivix-a1-lite` (faster, lower cost) or `vivix-a1` (higher quality) — or the W1 line: `vivix-w1`. See [List Models](/api-reference/models/list-models) to confirm which models are enabled for your API key.
+</ParamField>
+
+<ParamField body="text" type="string">
+  The script for the avatar to speak in the generated video. The platform will synthesize speech from this text using the selected voice. Either `text` or an audio input must be provided, depending on the model configuration.
+</ParamField>
+
+<ParamField body="avatar_id" type="string">
+  The ID of the avatar to use in the generated video. If omitted, the platform uses your account's default avatar.
+</ParamField>
+
+<ParamField body="voice_id" type="string">
+  The ID of the voice to use for text-to-speech synthesis. If omitted, the platform uses the default voice for your account.
+</ParamField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.vivix.ai/v1/video-generation/tasks \
+  -H "Authorization: Bearer <API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "vivix-a1",
+    "text": "Welcome to our quarterly review. Here are the highlights from this month.",
+    "avatar_id": "avatar_abc123",
+    "voice_id": "voice_en_us_01"
+  }'
+```
+
+## Response
+
+A successful submission returns HTTP `200`. The video is not yet available — use the `task_id` to check progress.
+
+<ResponseField name="task_id" type="string">
+  The unique identifier for this generation task. Pass this to the [Get Task](/api-reference/video-generation/get-task) endpoint to poll for status and retrieve the finished video URL when complete.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  The initial status of the task. Always `"pending"` immediately after submission.
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "task_id": "task_01jz4n2pqr0000000000000000",
+    "status": "pending"
+  }
+}
+```
+
+<Tip>
+  Use the [GET /v1/video-generation/tasks/{task_id}](/api-reference/video-generation/get-task) endpoint to poll for task completion and retrieve the playback URL once the video is ready. Poll every 2–5 seconds to balance responsiveness with API usage.
+</Tip>

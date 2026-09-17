@@ -1,0 +1,116 @@
+---
+title: "Streaming Avatar Starter Templates and Vivix Studio CLI"
+sidebarTitle: "Templates"
+description: "Use Vivix Studio CLI templates to scaffold and run a Streaming Avatar app locally — the fastest way to get a working avatar integration."
+---
+
+The fastest way to get a Streaming Avatar integration running locally is to start from a template rather than a blank project. Vivix provides a set of pre-built starter applications — one per popular frontend framework — that wire together session creation, TRTC media joining, and the WebSocket control channel for you. The **Vivix Studio CLI** is the tool that lets you browse those templates, scaffold one into a new directory, and start a local development server in a single workflow.
+
+## Available Templates
+
+Vivix maintains starter templates for the most common frontend environments. Each template includes a minimal backend proxy route (so your API key never leaves the server), a ready-to-run TRTC media integration, and an example control-channel client.
+
+<CardGroup cols={2}>
+  <Card title="React" icon="react">
+    A Vite-powered React application with a `useStreamingAvatar` hook, a pre-wired TRTC video component, and an example chat input that sends `speak` commands over the control channel.
+  </Card>
+  <Card title="Next.js" icon="n">
+    A Next.js App Router project with a `/api/sessions` route handler that creates and closes sessions server-side, keeping your API key in the backend while your page component handles the live stream.
+  </Card>
+  <Card title="Vue" icon="v">
+    A Vue 3 + Vite application using a `useStreamingAvatar` composable, with slots for customising the avatar video container and a built-in reconnection handler.
+  </Card>
+  <Card title="Vanilla JS" icon="js">
+    A zero-dependency HTML/CSS/JS template — no build step required. Ideal for quick prototypes, embedded widgets, or environments where you cannot use a framework.
+  </Card>
+</CardGroup>
+
+<Tip>
+  The template list grows over time. Visit [platform.vivix.ai/doc/streaming-avatar/templates](https://platform.vivix.ai/doc/streaming-avatar/templates) to see the latest additions, including community-contributed templates and framework-specific variants.
+</Tip>
+
+## Using Vivix Studio CLI
+
+The Vivix Studio CLI handles everything from picking a template to spinning up your local dev server.
+
+<Steps>
+  <Step title="Install the CLI">
+    Install the Vivix Studio CLI globally using the install command shown in the [Vivix developer platform](https://platform.vivix.ai). You need Node.js 18 or later. Once installed, confirm the CLI is available:
+
+    ```bash
+    vivix --version
+    ```
+  </Step>
+  <Step title="Authenticate with your API key">
+    Log in with the API key you generated in the Vivix developer platform. The CLI stores the key in your local config file — it is never sent anywhere other than `api.vivix.ai`.
+
+    ```bash
+    vivix login
+    ```
+
+    When prompted, paste your API key. You only need to do this once per machine.
+  </Step>
+  <Step title="Scaffold a template">
+    Run `vivix create` to browse the available templates interactively. Select your framework, give the project a name, and the CLI clones the template into a new directory and installs dependencies.
+
+    ```bash
+    vivix create my-avatar-app
+    ```
+
+    The CLI will prompt you to choose a template:
+
+    ```
+    ? Choose a template:
+      ❯ Streaming Avatar — React
+        Streaming Avatar — Next.js
+        Streaming Avatar — Vue
+        Streaming Avatar — Vanilla JS
+    ```
+
+    After scaffolding, your project directory will look similar to this:
+
+    ```
+    my-avatar-app/
+    ├── src/
+    │   ├── app/
+    │   │   ├── api/
+    │   │   │   └── sessions/
+    │   │   │       └── route.ts        # Server-side session create/close
+    │   │   └── page.tsx                # Main avatar UI
+    │   ├── components/
+    │   │   ├── AvatarStream.tsx        # TRTC video container
+    │   │   └── ControlPanel.tsx        # Speak / interrupt controls
+    │   └── hooks/
+    │       └── useStreamingAvatar.ts   # Session + control channel logic
+    ├── .env.local.example              # Copy to .env.local and add your key
+    ├── package.json
+    └── README.md
+    ```
+  </Step>
+  <Step title="Run locally">
+    Copy the example environment file and add your API key, then start the development server.
+
+    ```bash
+    cd my-avatar-app
+    cp .env.local.example .env.local
+    # Open .env.local and set VIVIX_API_KEY=<your key>
+
+    npm run dev
+    ```
+
+    Open [http://localhost:3000](http://localhost:3000) in your browser. You should see a live Streaming Avatar session start automatically.
+  </Step>
+</Steps>
+
+## Next Steps
+
+Once your template is running locally, explore the rest of the Streaming Avatar documentation to customise and extend it.
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="sliders" href="/streaming-avatar/configuration">
+    Understand every session parameter — model selection, duration limits, avatar IDs — and what each response field means.
+  </Card>
+  <Card title="Control Channel" icon="tower-broadcast" href="/streaming-avatar/control-channel">
+    Go beyond the template defaults and learn every command and event available on the WebSocket control channel.
+  </Card>
+</CardGroup>

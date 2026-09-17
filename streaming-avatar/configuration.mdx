@@ -1,0 +1,129 @@
+---
+title: "Configure a Vivix Streaming Avatar Session via REST"
+sidebarTitle: "Configuration"
+description: "Learn how to create, configure, and close Streaming Avatar sessions with the Vivix REST API, including model selection and session options."
+---
+
+Every Streaming Avatar integration starts with a session. A session is the server-side object that allocates the real-time media room and mints the short-lived credentials your client needs. You create it from your backend, hand the safe-to-expose fields to your frontend, and tear it down when the user is done. This page covers the full create-and-close lifecycle, the request parameters you can tune, and what every field in the response means.
+
+## Create a Session
+
+Send a `POST` request to `/v1/streaming-avatar/sessions` from your server — never from a browser, because this call requires your API key. The body is a JSON object with the model to use and any session options you want to override.
+
+```bash
+curl -X POST https://api.vivix.ai/v1/streaming-avatar/sessions \
+  -H "Authorization: Bearer <API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "vivix-a1-stream",
+    "max_duration_seconds": 1200,
+    "avatar_id": "your-avatar-id"
+  }'
+```
+
+### Request Parameters
+
+<ParamField body="model" type="string" required>
+  The streaming model to use for this session. Accepted values are `vivix-a1-stream` and `vivix-a1-stream-lite`. See [Models](/models) for capability differences between the two.
+</ParamField>
+
+<ParamField body="max_duration_seconds" type="integer">
+  The maximum number of seconds the session may stay open. Defaults to `1200` (20 minutes). Once this limit is reached, the session closes automatically and `control.client_secret` stops working. You cannot extend a session after it is created — start a new one to get fresh credentials.
+</ParamField>
+
+<ParamField body="avatar_id" type="string">
+  The identifier of the avatar to render in this session. Omit to use the default avatar associated with your account. You can swap the avatar mid-session via the control channel without recreating the session.
+</ParamField>
+
+### Response
+
+A successful request returns the unified `{ code, message, data }` envelope. The `data` object contains everything you need to join the media stream and open the control channel.
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "session_id": "sess_01jz4k8mw3e7v9xqncbfhd2r5t",
+    "control": {
+      "url": "wss://control.vivix.ai/v1/streaming-avatar/sessions/sess_01jz4k8mw3e7v9xqncbfhd2r5t/control",
+      "client_secret": "cs_live_a8f3bx92nzq0trwepjdhylk5vc"
+    },
+    "trtc": {
+      "app_id": 1400000001,
+      "room_id": "sess_01jz4k8mw3e7v9xqncbfhd2r5t",
+      "user_id": "viewer_7hq2mnpx",
+      "user_sig": "eJyrVkrNy0ktLU4tAQAL6AJD...",
+      "sdk_app_id": 1400000001
+    }
+  }
+}
+```
+
+<Warning>
+  Always create sessions on your server. The `POST /v1/streaming-avatar/sessions` call requires your `Authorization: Bearer <API_KEY>` header. Your API key must never be sent to or stored in a browser. Once you have created the session, pass only `control.url`, `control.client_secret`, and the `trtc` credentials to your frontend — those are the only values that are safe to use from the browser.
+</Warning>
+
+## Session Response Fields
+
+<ResponseField name="session_id" type="string">
+  A unique identifier for this session. Use it as the path parameter when closing the session via `DELETE /v1/streaming-avatar/sessions/{session_id}`.
+</ResponseField>
+
+<ResponseField name="control" type="object">
+  The WebSocket control channel credentials. Pass these to your frontend to drive the avatar in real time.
+
+  <Expandable title="control fields">
+    <ResponseField name="control.url" type="string">
+      The WebSocket URL for the control channel. Append `?token=<client_secret>` to authenticate when connecting from a browser.
+    </ResponseField>
+    <ResponseField name="control.client_secret" type="string">
+      A short-lived, session-scoped credential that authenticates the control channel. It is safe to send to the browser. It stays valid until the session ends or `max_duration_seconds` elapses — it cannot be refreshed. You can reconnect the control channel with it multiple times during the same session.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="trtc" type="object">
+  Credentials for joining the real-time media room (audio/video stream). Pass these to your TRTC client SDK to subscribe to the avatar's live audio and video tracks.
+
+  <Expandable title="trtc fields">
+    <ResponseField name="trtc.app_id" type="integer">
+      The TRTC application identifier for this session's media room.
+    </ResponseField>
+    <ResponseField name="trtc.room_id" type="string">
+      The media room identifier. Pass this to the TRTC SDK when entering the room.
+    </ResponseField>
+    <ResponseField name="trtc.user_id" type="string">
+      The user identity your client should assume when joining the TRTC room.
+    </ResponseField>
+    <ResponseField name="trtc.user_sig" type="string">
+      A signed token that authenticates `user_id` in the TRTC room. Treat it with the same care as `client_secret` — do not log it.
+    </ResponseField>
+    <ResponseField name="trtc.sdk_app_id" type="integer">
+      The SDK application ID required by some TRTC client SDK initializers.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Close a Session
+
+When your user is done — or when your application logic decides the session is no longer needed — send a `DELETE` request to tear it down. Closing the session immediately invalidates `control.client_secret` and releases the media room.
+
+```bash
+curl -X DELETE https://api.vivix.ai/v1/streaming-avatar/sessions/sess_01jz4k8mw3e7v9xqncbfhd2r5t \
+  -H "Authorization: Bearer <API_KEY>"
+```
+
+A successful response returns `{ "code": 0, "message": "success", "data": null }`. After this call, any WebSocket connection using the session's `client_secret` will be closed by the server.
+
+## Session Lifecycle
+
+A session begins the moment `POST /v1/streaming-avatar/sessions` returns and ends at whichever comes first: an explicit `DELETE` from your server or the `max_duration_seconds` wall-clock limit.
+
+- **Default duration:** 1200 seconds (20 minutes).
+- **On expiry:** The server closes the session automatically. The control WebSocket is disconnected, `client_secret` stops being accepted, and the TRTC media room is torn down.
+- **No refresh path:** Once a session has closed or expired, its `client_secret` cannot be reactivated. You must create a new session and obtain a new set of credentials.
+
+<Tip>
+  If you need to continue an experience after a session expires, create a new session from your server and pass the fresh `control.client_secret` and TRTC credentials to the browser. Design your frontend to handle a session-replacement event gracefully — for example, by briefly pausing the stream while the new session initialises.
+</Tip>

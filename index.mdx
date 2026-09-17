@@ -1,0 +1,53 @@
+---
+title: "Vivix API Platform: Build Interactive Avatar Experiences"
+sidebarTitle: "Home"
+description: "Vivix gives developers a single API to generate, orchestrate, and stream real-time interactive avatar experiences and AI-generated video."
+---
+
+Welcome to the Vivix developer platform. Vivix gives you a single API to build interactive, real-time avatar experiences and AI-generated video — turning passive viewers into active participants. Whether you need a live avatar that converses and reacts in real time, or an automated pipeline that produces finished video on demand, Vivix provides the infrastructure to ship it.
+
+<CardGroup cols={2}>
+  <Card title="Introduction" icon="book-open" href="introduction">
+    Understand what Vivix does, the two product lines, and how to pick the right one for your use case.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="quickstart">
+    Create your account, generate an API key, and make your first API call in under five minutes.
+  </Card>
+  <Card title="Streaming Avatar" icon="broadcast-tower" href="streaming-avatar/overview">
+    Build real-time avatar sessions where users interact live — talk, interrupt, and watch the avatar respond.
+  </Card>
+  <Card title="Video Generation" icon="film" href="video-generation/overview">
+    Submit a generation task and receive a finished, playable video file asynchronously.
+  </Card>
+</CardGroup>
+
+## Product Lines
+
+Vivix ships two production-ready product lines. Both share the same base URL, the same API key authentication, and the same `{code, message, data}` response envelope — only the integration pattern differs.
+
+<CardGroup cols={2}>
+  <Card title="Streaming Avatar" icon="broadcast-tower" href="streaming-avatar/overview">
+    Real-time avatar sessions driven over a WebSocket control channel. The avatar talks, listens, performs actions, sings, and dances — all live. Use this when your users need to influence what happens on screen while they watch it.
+
+    **Models:** `vivix-a1-stream`, `vivix-a1-stream-lite`
+  </Card>
+  <Card title="Video Generation" icon="film" href="video-generation/overview">
+    Asynchronous, task-based video production. Submit your content over REST, poll for completion, and serve the playback URL. No real-time session required.
+
+    **Models:** `vivix-a1-lite`, `vivix-a1`, `vivix-w1`
+  </Card>
+</CardGroup>
+
+## Get Started in Three Steps
+
+<Steps>
+  <Step title="Create your Vivix account">
+    Register at [platform.vivix.ai](https://platform.vivix.ai) and sign in to your developer account.
+  </Step>
+  <Step title="Get your API key">
+    Open **API Keys** in the developer platform, create a new key, and store it securely on your server — never expose it to the browser.
+  </Step>
+  <Step title="Build">
+    Follow the [Quickstart](quickstart) to make your first API call, then choose the product line that fits your use case.
+  </Step>
+</Steps>

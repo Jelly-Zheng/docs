@@ -1,0 +1,98 @@
+---
+title: "Get Video Generation Task Status — GET API Reference"
+sidebarTitle: "Get Task"
+description: "GET /v1/video-generation/tasks/{task_id} — retrieves the current status of a video generation task and the playback URL when complete."
+---
+
+After submitting a video generation task, poll this endpoint periodically to check its progress. When the task status becomes `completed`, the response includes a `video_url` you can use to play or download the finished video. If a task fails, the response includes a `message` describing what went wrong.
+
+## Request
+
+```
+GET https://api.vivix.ai/v1/video-generation/tasks/{task_id}
+```
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer <API_KEY>` |
+
+## Path Parameters
+
+<ParamField path="task_id" type="string" required>
+  The task ID returned by the [Submit Task](/api-reference/video-generation/submit-task) endpoint. This identifies which task to look up.
+</ParamField>
+
+## Example Request
+
+```bash
+curl https://api.vivix.ai/v1/video-generation/tasks/task_01jz4n2pqr0000000000000000 \
+  -H "Authorization: Bearer <API_KEY>"
+```
+
+## Response
+
+<ResponseField name="task_id" type="string">
+  The unique identifier for this task, matching the ID you provided in the request path.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  The current state of the task. Possible values:
+
+  - `pending` — The task has been accepted and is queued for processing.
+  - `processing` — The video is actively being generated.
+  - `completed` — Generation succeeded. The `video_url` field is populated.
+  - `failed` — Generation failed. Check the `message` field for details.
+</ResponseField>
+
+<ResponseField name="video_url" type="string">
+  The playback URL for the finished video. Only present when `status` is `"completed"`. This URL may expire after a period of time — download or cache the video promptly after retrieving it.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  An error description when `status` is `"failed"`. Not present on successful tasks.
+</ResponseField>
+
+### Example Response — Processing
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "task_id": "task_01jz4n2pqr0000000000000000",
+    "status": "processing"
+  }
+}
+```
+
+### Example Response — Completed
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "task_id": "task_01jz4n2pqr0000000000000000",
+    "status": "completed",
+    "video_url": "https://cdn.vivix.ai/output/task_01jz4n2pqr0000000000000000/video.mp4"
+  }
+}
+```
+
+### Example Response — Failed
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "task_id": "task_01jz4n2pqr0000000000000000",
+    "status": "failed",
+    "message": "Avatar not found: avatar_abc123 is not available for your account."
+  }
+}
+```
+
+<Tip>
+  Poll this endpoint every 2–5 seconds after submitting a task. Once you receive `status: "completed"`, retrieve the video promptly — `video_url` values are time-limited and may expire. If you need long-term access, download the video to your own storage as soon as it is available.
+</Tip>
